@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
+  <title>Incentivos al empleo · Portal municipal</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-mark" aria-hidden="true">SAE</div>
+      <div>
+        <p class="eyebrow">Servicio Andaluz de Empleo · Granada</p>
+        <h1>Incentivos al empleo</h1>
+        <p class="header-subtitle">Portal municipal de gestión de inscripciones</p>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido" class="page-shell">
+    <div id="appNotice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <section id="loginView" class="auth-layout" aria-labelledby="loginTitle">
+      <article class="card auth-card">
+        <div class="card-heading">
+          <p class="section-kicker">Acceso identificado</p>
+          <h2 id="loginTitle">Entrar en el portal</h2>
+          <p>Utiliza el correo institucional y la contraseña asignada.</p>
+        </div>
+
+        <form id="loginForm" class="form-stack" novalidate>
+          <label>
+            <span>Correo electrónico</span>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="username"
+              inputmode="email"
+              required
+              placeholder="usuario@ayuntamiento.es"
+            >
+          </label>
+
+          <label>
+            <span>Contraseña</span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            >
+          </label>
+
+          <button id="loginButton" class="button primary" type="submit">
+            Entrar
+          </button>
+        </form>
+
+        <p class="support-note">
+          El acceso está limitado a usuarios municipales autorizados.
+        </p>
+      </article>
+
+      <aside class="card information-card" aria-label="Información del portal">
+        <p class="section-kicker">Entorno piloto</p>
+        <h2>Qué puedes comprobar</h2>
+        <ul class="feature-list">
+          <li>Acceso con usuario y contraseña.</li>
+          <li>Identificación del ayuntamiento vinculado.</li>
+          <li>Consulta de sesiones iniciales y finales publicadas.</li>
+          <li>Aislamiento de la información mediante RLS.</li>
+        </ul>
+        <p class="muted">
+          Esta versión todavía no permite registrar participantes ni trata nombres o DNI.
+        </p>
+      </aside>
+    </section>
+
+    <section id="portalView" hidden>
+      <div class="portal-toolbar card">
+        <div>
+          <p class="section-kicker">Ayuntamiento conectado</p>
+          <h2 id="municipalityName">—</h2>
+          <p id="userSummary" class="muted">—</p>
+        </div>
+        <button id="logoutButton" class="button secondary" type="button">
+          Cerrar sesión
+        </button>
+      </div>
+
+      <section class="summary-grid" aria-label="Resumen">
+        <article class="summary-card">
+          <span>Sesiones disponibles</span>
+          <strong id="sessionCount">0</strong>
+        </article>
+        <article class="summary-card">
+          <span>Sesiones iniciales</span>
+          <strong id="initialCount">0</strong>
+        </article>
+        <article class="summary-card">
+          <span>Sesiones finales</span>
+          <strong id="finalCount">0</strong>
+        </article>
+      </section>
+
+      <section class="card sessions-card" aria-labelledby="sessionsTitle">
+        <div class="card-heading sessions-heading">
+          <div>
+            <p class="section-kicker">Programación</p>
+            <h2 id="sessionsTitle">Sesiones publicadas</h2>
+          </div>
+          <button id="refreshButton" class="button secondary small" type="button">
+            Actualizar
+          </button>
+        </div>
+
+        <div id="sessionsLoading" class="empty-state">
+          Cargando sesiones…
+        </div>
+
+        <div id="sessionsEmpty" class="empty-state" hidden>
+          No hay sesiones disponibles actualmente.
+        </div>
+
+        <div id="sessionsGrid" class="sessions-grid" hidden></div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Portal piloto · Dirección Provincial del SAE en Granada</p>
+  </footer>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
