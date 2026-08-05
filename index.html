@@ -35,50 +35,28 @@
         <form id="loginForm" class="form-stack" novalidate>
           <label>
             <span>Correo electrónico</span>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autocomplete="username"
-              inputmode="email"
-              required
-              placeholder="usuario@ayuntamiento.es"
-            >
+            <input id="email" name="email" type="email" autocomplete="username" inputmode="email" required placeholder="usuario@ayuntamiento.es">
           </label>
-
           <label>
             <span>Contraseña</span>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              required
-            >
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
           </label>
-
-          <button id="loginButton" class="button primary" type="submit">
-            Entrar
-          </button>
+          <button id="loginButton" class="button primary" type="submit">Entrar</button>
         </form>
 
-        <p class="support-note">
-          El acceso está limitado a usuarios municipales autorizados.
-        </p>
+        <p class="support-note">El acceso está limitado a usuarios municipales autorizados.</p>
       </article>
 
       <aside class="card information-card" aria-label="Información del portal">
-        <p class="section-kicker">Entorno piloto</p>
-        <h2>Qué puedes comprobar</h2>
+        <p class="section-kicker">Protección de datos</p>
+        <h2>Identidad protegida desde el origen</h2>
         <ul class="feature-list">
-          <li>Acceso con usuario y contraseña.</li>
-          <li>Identificación del ayuntamiento vinculado.</li>
-          <li>Consulta de sesiones iniciales y finales publicadas.</li>
-          <li>Aislamiento de la información mediante RLS.</li>
+          <li>Nombre, apellidos y DNI/NIE se cifran en el navegador.</li>
+          <li>GitHub no recibe ni almacena formularios.</li>
+          <li>Supabase conserva temporalmente un bloque cifrado.</li>
+          <li>La clave privada permanece en el servidor interno del SAE.</li>
         </ul>
-        <p class="muted">
-          Esta versión todavía no permite registrar participantes ni trata nombres o DNI.
-        </p>
+        <p class="muted">La lista municipal muestra únicamente el nombre y las iniciales de los apellidos, junto con el documento enmascarado.</p>
       </aside>
     </section>
 
@@ -89,53 +67,140 @@
           <h2 id="municipalityName">—</h2>
           <p id="userSummary" class="muted">—</p>
         </div>
-        <button id="logoutButton" class="button secondary" type="button">
-          Cerrar sesión
-        </button>
+        <button id="logoutButton" class="button secondary" type="button">Cerrar sesión</button>
       </div>
 
-      <section class="summary-grid" aria-label="Resumen">
-        <article class="summary-card">
-          <span>Sesiones disponibles</span>
-          <strong id="sessionCount">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>Sesiones iniciales</span>
-          <strong id="initialCount">0</strong>
-        </article>
-        <article class="summary-card">
-          <span>Sesiones finales</span>
-          <strong id="finalCount">0</strong>
-        </article>
+      <nav class="portal-tabs" aria-label="Secciones del portal">
+        <button class="tab-button active" type="button" data-view="sessionsSection">Sesiones</button>
+        <button class="tab-button" type="button" data-view="registrationsSection">
+          Mis inscripciones <span id="registrationTabCount" class="tab-count">0</span>
+        </button>
+      </nav>
+
+      <section id="sessionsSection" class="portal-section">
+        <section class="summary-grid" aria-label="Resumen">
+          <article class="summary-card"><span>Sesiones disponibles</span><strong id="sessionCount">0</strong></article>
+          <article class="summary-card"><span>Sesiones iniciales</span><strong id="initialCount">0</strong></article>
+          <article class="summary-card"><span>Sesiones finales</span><strong id="finalCount">0</strong></article>
+        </section>
+
+        <section class="card sessions-card" aria-labelledby="sessionsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Programación</p>
+              <h2 id="sessionsTitle">Sesiones publicadas</h2>
+            </div>
+            <button id="refreshButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+          <div id="sessionsLoading" class="empty-state">Cargando sesiones…</div>
+          <div id="sessionsEmpty" class="empty-state" hidden>No hay sesiones disponibles actualmente.</div>
+          <div id="sessionsGrid" class="sessions-grid" hidden></div>
+        </section>
       </section>
 
-      <section class="card sessions-card" aria-labelledby="sessionsTitle">
-        <div class="card-heading sessions-heading">
-          <div>
-            <p class="section-kicker">Programación</p>
-            <h2 id="sessionsTitle">Sesiones publicadas</h2>
+      <section id="registrationsSection" class="portal-section" hidden>
+        <section class="card sessions-card" aria-labelledby="registrationsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Seguimiento municipal</p>
+              <h2 id="registrationsTitle">Personas inscritas</h2>
+              <p>Solo se muestran datos identificativos reducidos.</p>
+            </div>
+            <button id="refreshRegistrationsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
-          <button id="refreshButton" class="button secondary small" type="button">
-            Actualizar
-          </button>
-        </div>
-
-        <div id="sessionsLoading" class="empty-state">
-          Cargando sesiones…
-        </div>
-
-        <div id="sessionsEmpty" class="empty-state" hidden>
-          No hay sesiones disponibles actualmente.
-        </div>
-
-        <div id="sessionsGrid" class="sessions-grid" hidden></div>
+          <div id="registrationsLoading" class="empty-state">Cargando inscripciones…</div>
+          <div id="registrationsEmpty" class="empty-state" hidden>No hay inscripciones realizadas por este ayuntamiento.</div>
+          <div id="registrationsList" class="registration-list" hidden></div>
+        </section>
       </section>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <p>Portal piloto · Dirección Provincial del SAE en Granada</p>
-  </footer>
+  <footer class="site-footer"><p>Dirección Provincial del SAE en Granada</p></footer>
+
+  <dialog id="initialRegistrationDialog" class="modal-dialog" aria-labelledby="initialDialogTitle">
+    <form id="initialRegistrationForm" class="modal-card" method="dialog" novalidate>
+      <div id="registrationNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Nueva inscripción</p>
+          <h2 id="initialDialogTitle">Sesión inicial</h2>
+          <p id="initialSessionSummary" class="muted">—</p>
+        </div>
+        <button id="closeInitialDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <input id="initialSessionId" type="hidden">
+
+      <div class="form-grid">
+        <label class="span-2"><span>Nombre</span><input id="firstName" autocomplete="off" maxlength="80" required></label>
+        <label><span>Primer apellido</span><input id="firstSurname" autocomplete="off" maxlength="80" required></label>
+        <label><span>Segundo apellido</span><input id="secondSurname" autocomplete="off" maxlength="80" required></label>
+        <label>
+          <span>Tipo de documento</span>
+          <select id="documentType" required><option value="DNI">DNI</option><option value="NIE">NIE</option></select>
+        </label>
+        <label>
+          <span>DNI/NIE</span>
+          <input id="documentNumber" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" required placeholder="12345678Z">
+        </label>
+      </div>
+
+      <div class="privacy-box">
+        <p><strong>Información que verá el ayuntamiento:</strong></p>
+        <p id="safePreview">Nombre I. I. · ***0000**</p>
+        <label class="checkbox-label">
+          <input id="informationConfirmed" type="checkbox" required>
+          <span>Declaro que se ha facilitado a la persona la información aplicable sobre el tratamiento de sus datos.</span>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelInitialRegistration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitInitialRegistration" class="button primary" type="submit">Cifrar e inscribir</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="finalRegistrationDialog" class="modal-dialog" aria-labelledby="finalDialogTitle">
+    <form id="finalRegistrationForm" class="modal-card" method="dialog">
+      <div id="finalRegistrationNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Nueva inscripción</p>
+          <h2 id="finalDialogTitle">Sesión final</h2>
+          <p id="finalSessionSummary" class="muted">—</p>
+        </div>
+        <button id="closeFinalDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <input id="finalSessionId" type="hidden">
+      <label>
+        <span>Persona que ha completado la sesión inicial</span>
+        <select id="eligibleParticipant" required></select>
+      </label>
+      <div class="modal-actions">
+        <button id="cancelFinalRegistration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitFinalRegistration" class="button primary" type="submit">Inscribir en sesión final</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="cancelDialog" class="modal-dialog compact-dialog" aria-labelledby="cancelDialogTitle">
+    <div class="modal-card">
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Confirmación</p>
+          <h2 id="cancelDialogTitle">Cancelar inscripción</h2>
+        </div>
+        <button id="closeCancelDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <p id="cancelDialogText">—</p>
+      <div class="modal-actions">
+        <button id="keepRegistrationButton" class="button secondary" type="button">Mantener inscripción</button>
+        <button id="confirmCancelButton" class="button danger" type="button">Cancelar inscripción</button>
+      </div>
+    </div>
+  </dialog>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>

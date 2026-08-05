@@ -434,3 +434,248 @@ input:focus {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Portal municipal v0.2 */
+.portal-tabs {
+  margin: 1rem 0;
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+}
+
+.tab-button {
+  min-height: 2.65rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid #9bb8ad;
+  border-radius: 999px;
+  color: var(--sae-green-dark);
+  background: #fff;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.tab-button.active {
+  color: #fff;
+  background: var(--sae-green);
+  border-color: var(--sae-green);
+}
+
+.tab-count {
+  display: inline-grid;
+  min-width: 1.55rem;
+  min-height: 1.55rem;
+  margin-left: 0.3rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 0.78rem;
+}
+
+.tab-button:not(.active) .tab-count {
+  color: var(--sae-green-dark);
+  background: var(--sae-green-soft);
+}
+
+.button.danger {
+  color: #fff;
+  background: var(--danger);
+}
+
+.session-enrol-note {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.registration-list {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.registration-item {
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(190px, 1.15fr) auto;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: #fff;
+}
+
+.registration-person strong,
+.registration-session strong {
+  display: block;
+}
+
+.registration-person small,
+.registration-session small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+}
+
+.status-row {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.badge.pending,
+.badge.processing {
+  color: #725100;
+  background: #fff3cd;
+}
+
+.badge.confirmed,
+.badge.synced,
+.badge.attended {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.badge.incident,
+.badge.error,
+.badge.cancelled,
+.badge.absent {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.modal-dialog {
+  width: min(760px, calc(100% - 1.5rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: 1rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.modal-dialog::backdrop {
+  background: rgba(8, 25, 19, 0.58);
+}
+
+.compact-dialog {
+  width: min(560px, calc(100% - 1.5rem));
+}
+
+.modal-card {
+  margin: 0;
+  padding: clamp(1rem, 4vw, 1.6rem);
+  background: #fff;
+}
+
+.modal-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.modal-heading h2 {
+  margin: 0;
+}
+
+.modal-heading p:not(.section-kicker) {
+  margin: 0.35rem 0 0;
+}
+
+.icon-button {
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.form-grid .span-2 {
+  grid-column: span 2;
+}
+
+select {
+  width: 100%;
+  min-height: 2.85rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid #aebdb7;
+  border-radius: 0.65rem;
+}
+
+select:focus {
+  outline: 3px solid rgba(0, 107, 79, 0.16);
+  border-color: var(--sae-green);
+}
+
+.privacy-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  color: var(--ink);
+  background: var(--sae-green-soft);
+  border: 1px solid #bdd9cd;
+  border-radius: 0.75rem;
+}
+
+.privacy-box p {
+  margin: 0 0 0.65rem;
+}
+
+.checkbox-label {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.65rem;
+  font-weight: 620;
+}
+
+.checkbox-label input {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  margin-top: 0.12rem;
+}
+
+.modal-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+@media (max-width: 760px) {
+  .registration-item {
+    grid-template-columns: 1fr;
+  }
+
+  .registration-item .button {
+    width: 100%;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid .span-2 {
+    grid-column: auto;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .button {
+    width: 100%;
+  }
+}
