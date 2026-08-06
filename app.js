@@ -6,6 +6,8 @@
   const publishableKey = String(config.SUPABASE_PUBLISHABLE_KEY ?? "").trim();
   const PAYLOAD_SCHEMA = "incentivos-empleo.participant.v1";
   const AES_ADDITIONAL_DATA = new TextEncoder().encode(PAYLOAD_SCHEMA);
+  const DOCUMENT_SCHEMA = "incentivos-empleo.signed-annex.v1";
+  const MAX_SIGNED_ANNEX_BYTES = 12 * 1024 * 1024;
 
   const elements = {
     notice: document.querySelector("#appNotice"),
@@ -58,7 +60,21 @@
     cancelDialogText: document.querySelector("#cancelDialogText"),
     closeCancelDialog: document.querySelector("#closeCancelDialog"),
     keepRegistrationButton: document.querySelector("#keepRegistrationButton"),
-    confirmCancelButton: document.querySelector("#confirmCancelButton")
+    confirmCancelButton: document.querySelector("#confirmCancelButton"),
+    documentTabCount: document.querySelector("#documentTabCount"),
+    refreshDocumentsButton: document.querySelector("#refreshDocumentsButton"),
+    documentsLoading: document.querySelector("#documentsLoading"),
+    documentsEmpty: document.querySelector("#documentsEmpty"),
+    documentsList: document.querySelector("#documentsList"),
+    documentUploadDialog: document.querySelector("#documentUploadDialog"),
+    documentUploadForm: document.querySelector("#documentUploadForm"),
+    documentUploadNotice: document.querySelector("#documentUploadNotice"),
+    documentSessionId: document.querySelector("#documentSessionId"),
+    documentSessionSummary: document.querySelector("#documentSessionSummary"),
+    signedAnnexFile: document.querySelector("#signedAnnexFile"),
+    closeDocumentUploadDialog: document.querySelector("#closeDocumentUploadDialog"),
+    cancelDocumentUpload: document.querySelector("#cancelDocumentUpload"),
+    submitDocumentUpload: document.querySelector("#submitDocumentUpload")
   };
 
   let client = null;
@@ -69,6 +85,7 @@
   let eligibleParticipants = [];
   let activeEncryptionKey = null;
   let registrationToCancel = null;
+  let municipalDocuments = [];
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -242,6 +259,80 @@
     };
   }
 
+
+  function bytesToHex(bytes) {
+    return [...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, "0")).join("");
+  }
+
+  function documentAdditionalData(documentId, sessionId) {
+    return JSON.stringify({
+      schema: DOCUMENT_SCHEMA,
+      version: 1,
+      document_id: String(documentId),
+      municipality_id: String(currentProfile.municipality.id),
+      session_id: String(sessionId),
+    });
+  }
+
+  async function validateAndReadPdf(file) {
+    if (!file) throw new Error("Selecciona un archivo PDF.");
+    if (file.size < 5 || file.size > MAX_SIGNED_ANNEX_BYTES) {
+      throw new Error("El PDF debe ocupar como máximo 12 MB.");
+    }
+    const buffer = await file.arrayBuffer();
+    const header = new TextDecoder("ascii").decode(buffer.slice(0, 5));
+    if (header !== "%PDF-") throw new Error("El archivo seleccionado no es un PDF válido.");
+    const digest = await crypto.subtle.digest("SHA-256", buffer);
+    return { buffer, sha256: bytesToHex(digest) };
+  }
+
+  async function encryptSignedAnnex(buffer, documentId, sessionId, publicKeyPem) {
+    const rsaKey = await crypto.subtle.importKey(
+      "spki",
+      pemToArrayBuffer(publicKeyPem),
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      false,
+      ["encrypt"]
+    );
+    const aesKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt"]
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const additionalData = new TextEncoder().encode(documentAdditionalData(documentId, sessionId));
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData, tagLength: 128 },
+      aesKey,
+      buffer
+    );
+    const rawAesKey = await crypto.subtle.exportKey("raw", aesKey);
+    const encryptedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, rsaKey, rawAesKey);
+    return {
+      encryptedKey: bytesToBase64(encryptedKey),
+      iv: bytesToBase64(iv),
+      ciphertext,
+    };
+  }
+
+  function documentSyncLabel(status) {
+    return ({
+      pending: "Pendiente de incorporar al SAE",
+      processing: "Incorporando al SAE",
+      synced: "Incorporado al SAE",
+      error: "Error de sincronización",
+    })[status] ?? status;
+  }
+
+  function documentValidationLabel(status) {
+    return ({
+      pending_validation: "Pendiente de validación",
+      validated: "Validado",
+      incident: "Con incidencia",
+      superseded: "Versión sustituida",
+    })[status] ?? status;
+  }
+
   function statusLabel(status) {
     return ({ pending: "Pendiente", confirmed: "Confirmada", incident: "Incidencia", cancelled: "Cancelada", attended: "Realizada", absent: "No asistió" })[status] ?? status;
   }
@@ -311,6 +402,158 @@
         </div>
         <button class="button secondary small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>${canCancel ? "Cancelar inscripción" : "Sin acciones"}</button>
       </article>`;
+  }
+
+
+  function latestDocumentForSession(sessionId) {
+    return municipalDocuments
+      .filter((item) => item.session_id === sessionId && item.validation_status !== "superseded")
+      .sort((a, b) => Number(b.version) - Number(a.version))[0] ?? null;
+  }
+
+  function documentSessionItem(group) {
+    const document = latestDocumentForSession(group.session.id);
+    const canUpload = !document || document.validation_status === "incident" || document.sync_status === "error";
+    const actionLabel = document ? "Enviar nueva versión" : "Incorporar PDF";
+    const statusHtml = document
+      ? `<div class="status-row"><span class="badge ${document.sync_status}">${escapeHtml(documentSyncLabel(document.sync_status))}</span><span class="badge ${document.validation_status === "validated" ? "synced" : document.validation_status === "incident" ? "incident" : "pending"}">${escapeHtml(documentValidationLabel(document.validation_status))}</span></div><small>Versión ${document.version}${document.processed_at ? ` · recibida por el SAE` : ""}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`
+      : `<span class="badge pending">Sin entregar</span><small>Debe incorporarse después de la sesión.</small>`;
+
+    return `<article class="document-item">
+      <div>
+        <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
+        <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
+        <small>${group.count} persona${group.count === 1 ? "" : "s"} registrada${group.count === 1 ? "" : "s"}</small>
+      </div>
+      <div class="document-status-column">${statusHtml}</div>
+      <button class="button ${document ? "secondary" : "primary"} small js-upload-document" type="button" data-session-id="${group.session.id}" ${canUpload ? "" : "disabled"}>${canUpload ? actionLabel : "Sin acciones"}</button>
+    </article>`;
+  }
+
+  async function loadDocuments() {
+    elements.documentsLoading.hidden = false;
+    elements.documentsEmpty.hidden = true;
+    elements.documentsList.hidden = true;
+    elements.refreshDocumentsButton.disabled = true;
+    try {
+      const { data, error } = await client
+        .from("municipal_documents")
+        .select("id, session_id, version, sync_status, validation_status, incident_message, upload_status, created_at, processed_at")
+        .order("version", { ascending: false });
+      if (error) throw new Error(error.message);
+      municipalDocuments = Array.isArray(data) ? data : [];
+      elements.documentTabCount.textContent = String(municipalDocuments.filter((item) => item.validation_status !== "superseded").length);
+
+      const today = new Date().toISOString().slice(0, 10);
+      const grouped = new Map();
+      for (const registration of registrations) {
+        if (!registration.session || registration.status === "cancelled") continue;
+        if (registration.session.session_date > today) continue;
+        const key = registration.session.id;
+        const current = grouped.get(key) ?? { session: registration.session, count: 0 };
+        current.count += 1;
+        grouped.set(key, current);
+      }
+      const groups = [...grouped.values()].sort((a, b) => b.session.session_date.localeCompare(a.session.session_date));
+      if (groups.length === 0) {
+        elements.documentsEmpty.hidden = false;
+        return;
+      }
+      elements.documentsList.innerHTML = groups.map(documentSessionItem).join("");
+      elements.documentsList.hidden = false;
+    } finally {
+      elements.documentsLoading.hidden = true;
+      elements.refreshDocumentsButton.disabled = false;
+    }
+  }
+
+  function findRegistrationSession(sessionId) {
+    return registrations.find((item) => item.session?.id === sessionId)?.session ?? null;
+  }
+
+  function openDocumentUploadDialog(sessionId) {
+    const session = findRegistrationSession(sessionId);
+    if (!session) return;
+    clearNotice(elements.documentUploadNotice);
+    elements.documentUploadForm.reset();
+    elements.documentSessionId.value = session.id;
+    elements.documentSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)}`;
+    elements.documentUploadDialog.showModal();
+  }
+
+  function closeDocumentUploadDialog() {
+    elements.documentUploadForm.reset();
+    clearNotice(elements.documentUploadNotice);
+    elements.documentUploadDialog.close();
+  }
+
+  async function handleDocumentUpload(event) {
+    event.preventDefault();
+    clearNotice(elements.documentUploadNotice);
+    const sessionId = elements.documentSessionId.value;
+    const file = elements.signedAnnexFile.files?.[0];
+    let reservation = null;
+    elements.submitDocumentUpload.disabled = true;
+    elements.submitDocumentUpload.textContent = "Comprobando PDF…";
+
+    try {
+      if (!activeEncryptionKey) throw new Error("No está disponible la clave pública de cifrado.");
+      const pdf = await validateAndReadPdf(file);
+
+      const { data: beginData, error: beginError } = await client.rpc("begin_signed_annex_upload", {
+        p_session_id: sessionId,
+        p_plain_size_bytes: pdf.buffer.byteLength,
+        p_plain_sha256: pdf.sha256,
+        p_key_id: activeEncryptionKey.id,
+      });
+      if (beginError) throw new Error(beginError.message);
+      reservation = Array.isArray(beginData) ? beginData[0] : beginData;
+      if (!reservation?.document_id) throw new Error("No se pudo reservar el envío documental.");
+
+      elements.submitDocumentUpload.textContent = "Cifrando PDF…";
+      const encrypted = await encryptSignedAnnex(
+        pdf.buffer,
+        reservation.document_id,
+        sessionId,
+        activeEncryptionKey.public_key_pem
+      );
+
+      elements.submitDocumentUpload.textContent = "Enviando cifrado…";
+      const { error: uploadError } = await client.storage
+        .from(reservation.storage_bucket)
+        .upload(
+          reservation.storage_path,
+          new Blob([encrypted.ciphertext], { type: "application/octet-stream" }),
+          { contentType: "application/octet-stream", upsert: false }
+        );
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data: completeData, error: completeError } = await client.rpc("complete_signed_annex_upload", {
+        p_document_id: reservation.document_id,
+        p_encrypted_key: encrypted.encryptedKey,
+        p_iv: encrypted.iv,
+        p_encrypted_size_bytes: encrypted.ciphertext.byteLength,
+        p_payload_version: 1,
+      });
+      if (completeError) throw new Error(completeError.message);
+      if (!completeData) throw new Error("El envío cifrado no pudo confirmarse.");
+
+      closeDocumentUploadDialog();
+      await reloadPortalData();
+      showNotice("success", "El Anexo I firmado se ha cifrado y enviado al SAE.");
+      setActiveSection("documentsSection");
+    } catch (error) {
+      if (reservation?.storage_bucket && reservation?.storage_path) {
+        await client.storage.from(reservation.storage_bucket).remove([reservation.storage_path]).catch(() => {});
+      }
+      if (reservation?.document_id) {
+        await client.rpc("abort_signed_annex_upload", { p_document_id: reservation.document_id }).catch(() => {});
+      }
+      showNotice("error", error.message || "No se pudo enviar el Anexo I firmado.", elements.documentUploadNotice);
+    } finally {
+      elements.submitDocumentUpload.disabled = false;
+      elements.submitDocumentUpload.textContent = "Cifrar y enviar";
+    }
   }
 
   async function loadProfile() {
@@ -411,7 +654,7 @@
 
   async function reloadPortalData() {
     await loadRegistrations();
-    await loadSessions();
+    await Promise.all([loadSessions(), loadDocuments()]);
   }
 
   function findSession(sessionId) {
@@ -657,6 +900,11 @@
       try { await reloadPortalData(); showNotice("success", "Las inscripciones se han actualizado."); }
       catch (error) { showNotice("error", `No se pudieron actualizar las inscripciones: ${error.message}`); }
     });
+    elements.refreshDocumentsButton.addEventListener("click", async () => {
+      clearNotice();
+      try { await loadDocuments(); showNotice("success", "La documentación se ha actualizado."); }
+      catch (error) { showNotice("error", `No se pudo actualizar la documentación: ${error.message}`); }
+    });
     document.querySelectorAll(".tab-button").forEach((button) => button.addEventListener("click", () => setActiveSection(button.dataset.view)));
     elements.sessionsGrid.addEventListener("click", (event) => {
       const initialButton = event.target.closest(".js-register-initial");
@@ -667,6 +915,10 @@
     elements.registrationsList.addEventListener("click", (event) => {
       const button = event.target.closest(".js-cancel-registration");
       if (button && !button.disabled) openCancelDialog(button.dataset.registrationId);
+    });
+    elements.documentsList.addEventListener("click", (event) => {
+      const button = event.target.closest(".js-upload-document");
+      if (button && !button.disabled) openDocumentUploadDialog(button.dataset.sessionId);
     });
     [elements.firstName, elements.firstSurname, elements.secondSurname, elements.documentNumber].forEach((input) => input.addEventListener("input", updateSafePreview));
     elements.documentType.addEventListener("change", updateSafePreview);
@@ -679,6 +931,9 @@
     elements.closeCancelDialog.addEventListener("click", closeCancelDialog);
     elements.keepRegistrationButton.addEventListener("click", closeCancelDialog);
     elements.confirmCancelButton.addEventListener("click", confirmCancellation);
+    elements.documentUploadForm.addEventListener("submit", handleDocumentUpload);
+    elements.closeDocumentUploadDialog.addEventListener("click", closeDocumentUploadDialog);
+    elements.cancelDocumentUpload.addEventListener("click", closeDocumentUploadDialog);
   }
 
   async function initialize() {

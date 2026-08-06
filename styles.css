@@ -679,3 +679,58 @@ select:focus {
     width: 100%;
   }
 }
+
+
+.document-list {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.document-item {
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(180px, 0.9fr) auto;
+  gap: 1rem;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+
+.document-item h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.document-item p,
+.document-item small {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.document-status-column {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.document-status-column .danger-text {
+  color: var(--danger);
+}
+
+.file-summary {
+  margin-top: 0.65rem;
+  padding: 0.7rem;
+  color: var(--muted);
+  background: var(--surface-soft);
+  border-radius: 0.6rem;
+}
+
+@media (max-width: 760px) {
+  .document-item {
+    grid-template-columns: 1fr;
+  }
+  .document-item .button {
+    width: 100%;
+  }
+}

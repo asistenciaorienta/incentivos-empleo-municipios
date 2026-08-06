@@ -75,6 +75,9 @@
         <button class="tab-button" type="button" data-view="registrationsSection">
           Mis inscripciones <span id="registrationTabCount" class="tab-count">0</span>
         </button>
+        <button class="tab-button" type="button" data-view="documentsSection">
+          Documentación <span id="documentTabCount" class="tab-count">0</span>
+        </button>
       </nav>
 
       <section id="sessionsSection" class="portal-section">
@@ -111,6 +114,22 @@
           <div id="registrationsLoading" class="empty-state">Cargando inscripciones…</div>
           <div id="registrationsEmpty" class="empty-state" hidden>No hay inscripciones realizadas por este ayuntamiento.</div>
           <div id="registrationsList" class="registration-list" hidden></div>
+        </section>
+      </section>
+
+      <section id="documentsSection" class="portal-section" hidden>
+        <section class="card sessions-card" aria-labelledby="documentsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Anexo I firmado</p>
+              <h2 id="documentsTitle">Documentación de las sesiones</h2>
+              <p>El PDF se cifra en este dispositivo antes de enviarse.</p>
+            </div>
+            <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+          <div id="documentsLoading" class="empty-state">Cargando documentación…</div>
+          <div id="documentsEmpty" class="empty-state" hidden>No hay sesiones celebradas con inscripciones de este ayuntamiento.</div>
+          <div id="documentsList" class="document-list" hidden></div>
         </section>
       </section>
     </section>
@@ -200,6 +219,35 @@
         <button id="confirmCancelButton" class="button danger" type="button">Cancelar inscripción</button>
       </div>
     </div>
+  </dialog>
+
+
+  <dialog id="documentUploadDialog" class="modal-dialog compact-dialog" aria-labelledby="documentUploadTitle">
+    <form id="documentUploadForm" class="modal-card" method="dialog" novalidate>
+      <div id="documentUploadNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Entrega segura</p>
+          <h2 id="documentUploadTitle">Incorporar Anexo I firmado</h2>
+          <p id="documentSessionSummary" class="muted">—</p>
+        </div>
+        <button id="closeDocumentUploadDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <input id="documentSessionId" type="hidden">
+      <label>
+        <span>PDF firmado</span>
+        <input id="signedAnnexFile" type="file" accept="application/pdf,.pdf" required>
+      </label>
+      <div class="privacy-box">
+        <p><strong>Protección del documento</strong></p>
+        <p>El archivo se cifra mediante AES-256-GCM. La clave AES se protege con la clave pública RSA del SAE. Supabase solo recibe un binario cifrado.</p>
+        <p class="muted">Tamaño máximo: 12 MB. No incluyas datos personales en el nombre del archivo.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="cancelDocumentUpload" class="button secondary" type="button">Cancelar</button>
+        <button id="submitDocumentUpload" class="button primary" type="submit">Cifrar y enviar</button>
+      </div>
+    </form>
   </dialog>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
