@@ -734,3 +734,8 @@ select:focus {
     width: 100%;
   }
 }
+
+
+/* v1.1 · Programa por inscripción */
+.field-help { display: block; margin-top: .35rem; color: var(--muted); font-size: .82rem; }
+.registration-session small { display: block; }

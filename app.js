@@ -46,6 +46,8 @@
     documentType: document.querySelector("#documentType"),
     documentNumber: document.querySelector("#documentNumber"),
     informationConfirmed: document.querySelector("#informationConfirmed"),
+    initialProgram: document.querySelector("#initialProgram"),
+    initialProgramHelp: document.querySelector("#initialProgramHelp"),
     safePreview: document.querySelector("#safePreview"),
     finalDialog: document.querySelector("#finalRegistrationDialog"),
     finalForm: document.querySelector("#finalRegistrationForm"),
@@ -53,6 +55,7 @@
     finalSessionId: document.querySelector("#finalSessionId"),
     finalSessionSummary: document.querySelector("#finalSessionSummary"),
     eligibleParticipant: document.querySelector("#eligibleParticipant"),
+    finalProgram: document.querySelector("#finalProgram"),
     closeFinalDialog: document.querySelector("#closeFinalDialog"),
     cancelFinalRegistration: document.querySelector("#cancelFinalRegistration"),
     submitFinalRegistration: document.querySelector("#submitFinalRegistration"),
@@ -83,6 +86,7 @@
   let sessions = [];
   let registrations = [];
   let eligibleParticipants = [];
+  let programs = [];
   let activeEncryptionKey = null;
   let registrationToCancel = null;
   let municipalDocuments = [];
@@ -395,6 +399,7 @@
         <div class="registration-session">
           <strong>${escapeHtml(session.title || "Sesión")}</strong>
           <small>${escapeHtml(formatDate(session.session_date))} · ${registration.phase === "initial" ? "Inicial" : "Final"}</small>
+          <small>Programa: ${escapeHtml(registration.program_name_snapshot || "Sin programa")}</small>
           <div class="status-row">
             <span class="badge ${registration.status}">${escapeHtml(statusLabel(registration.status))}</span>
             <span class="badge ${registration.sync_status}">${escapeHtml(syncLabel(registration.sync_status))}</span>
@@ -588,6 +593,37 @@
     activeEncryptionKey = data;
   }
 
+  async function loadPrograms() {
+    const { data, error } = await client
+      .from("programs")
+      .select("id, internal_id, code, name, start_date, end_date, active")
+      .eq("active", true)
+      .order("name", { ascending: true });
+    if (error) throw new Error(`No se pudo consultar el catálogo de programas: ${error.message}`);
+    programs = Array.isArray(data) ? data : [];
+    if (programs.length === 0) throw new Error("No hay ningún programa activo disponible para las inscripciones.");
+  }
+
+  function programsForSession(session) {
+    const sessionDate = String(session?.session_date || "");
+    return programs.filter((program) =>
+      (!program.start_date || !sessionDate || program.start_date <= sessionDate)
+      && (!program.end_date || !sessionDate || program.end_date >= sessionDate)
+    );
+  }
+
+  function programOptions(session, preferredId = "") {
+    const available = programsForSession(session);
+    const preferredAvailable = available.some((program) => String(program.id) === String(preferredId));
+    const selectedId = preferredAvailable
+      ? String(preferredId)
+      : (available.length === 1 ? String(available[0].id) : "");
+    const prompt = available.length > 1
+      ? '<option value="">Selecciona un programa</option>'
+      : "";
+    return prompt + available.map((program) => `<option value="${program.id}" ${String(program.id) === selectedId ? "selected" : ""}>${escapeHtml(program.name)}</option>`).join("");
+  }
+
   async function loadRegistrations() {
     elements.registrationsLoading.hidden = false;
     elements.registrationsEmpty.hidden = true;
@@ -597,7 +633,7 @@
       const { data, error } = await client
         .from("session_registrations")
         .select(`
-          id, phase, status, sync_status, incident_message, created_at,
+          id, phase, status, sync_status, incident_message, created_at, program_id, program_name_snapshot,
           participant:participants (id, display_name, masked_document, progress_status, sync_status, incident_message),
           session:sessions (id, title, session_type, session_date, start_time, end_time)
         `)
@@ -605,8 +641,9 @@
       if (error) throw new Error(error.message);
       registrations = Array.isArray(data) ? data : [];
       eligibleParticipants = registrations
-        .map((item) => item.participant)
-        .filter((participant, index, all) => participant?.progress_status === "initial_completed" && all.findIndex((other) => other?.id === participant.id) === index);
+        .filter((item) => item.phase === "initial" && item.participant?.progress_status === "initial_completed")
+        .map((item) => ({ ...item.participant, previous_program_id: item.program_id, previous_program_name: item.program_name_snapshot }))
+        .filter((participant, index, all) => all.findIndex((other) => other?.id === participant.id) === index);
       elements.registrationTabCount.textContent = String(registrations.length);
       if (registrations.length === 0) {
         elements.registrationsEmpty.hidden = false;
@@ -653,6 +690,7 @@
   }
 
   async function reloadPortalData() {
+    await loadPrograms();
     await loadRegistrations();
     await Promise.all([loadSessions(), loadDocuments()]);
   }
@@ -666,8 +704,15 @@
     if (!session) return;
     clearNotice(elements.registrationNotice);
     elements.initialForm.reset();
+    const availablePrograms = programsForSession(session);
+    if (availablePrograms.length === 0) {
+      showNotice("warning", "No hay ningún programa activo para la fecha de esta sesión.");
+      return;
+    }
     elements.initialSessionId.value = session.id;
     elements.initialSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
+    elements.initialProgram.innerHTML = programOptions(session);
+    elements.initialProgramHelp.textContent = availablePrograms.length === 1 ? "Programa seleccionado automáticamente." : "Hay varios programas activos para esta fecha; selecciona el correspondiente.";
     updateSafePreview();
     elements.initialDialog.showModal();
     elements.firstName.focus();
@@ -683,9 +728,16 @@
     const session = findSession(sessionId);
     if (!session) return;
     clearNotice(elements.finalRegistrationNotice);
+    const availablePrograms = programsForSession(session);
+    if (availablePrograms.length === 0) {
+      showNotice("warning", "No hay ningún programa activo para la fecha de esta sesión final.");
+      return;
+    }
     elements.finalSessionId.value = session.id;
     elements.finalSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
     elements.eligibleParticipant.innerHTML = eligibleParticipants.map((participant) => `<option value="${participant.id}">${escapeHtml(participant.display_name)} · ${escapeHtml(participant.masked_document)}</option>`).join("");
+    const selectedParticipant = eligibleParticipants[0];
+    elements.finalProgram.innerHTML = programOptions(session, selectedParticipant?.previous_program_id || "");
     elements.finalDialog.showModal();
   }
 
@@ -704,6 +756,7 @@
     const documentType = elements.documentType.value;
     const documentNumber = normalizeDocument(elements.documentNumber.value);
     const sessionId = elements.initialSessionId.value;
+    const programId = elements.initialProgram.value;
 
     if (!firstName || !firstSurname || !secondSurname) {
       showNotice("warning", "Completa el nombre y los dos apellidos.", elements.registrationNotice);
@@ -711,6 +764,10 @@
     }
     if (!validateDocument(documentType, documentNumber)) {
       showNotice("warning", `El ${documentType} no tiene un formato o letra de control válidos.`, elements.registrationNotice);
+      return;
+    }
+    if (!programId) {
+      showNotice("warning", "Selecciona el programa en el que participa la persona.", elements.registrationNotice);
       return;
     }
     if (!elements.informationConfirmed.checked) {
@@ -742,6 +799,7 @@
       elements.submitInitialRegistration.textContent = "Registrando…";
       const { error } = await client.rpc("register_initial", {
         p_session_id: sessionId,
+        p_program_id: programId,
         p_display_name: displayName(firstName, firstSurname, secondSurname),
         p_masked_document: maskedDocument(documentNumber),
         p_key_id: activeEncryptionKey.id,
@@ -770,13 +828,18 @@
     clearNotice(elements.finalRegistrationNotice);
     const participantId = elements.eligibleParticipant.value;
     const sessionId = elements.finalSessionId.value;
+    const programId = elements.finalProgram.value;
     if (!participantId) {
       showNotice("warning", "Selecciona una persona disponible.", elements.finalRegistrationNotice);
       return;
     }
+    if (!programId) {
+      showNotice("warning", "Selecciona el programa en el que participa.", elements.finalRegistrationNotice);
+      return;
+    }
     elements.submitFinalRegistration.disabled = true;
     try {
-      const { error } = await client.rpc("register_final", { p_participant_id: participantId, p_session_id: sessionId });
+      const { error } = await client.rpc("register_final", { p_participant_id: participantId, p_session_id: sessionId, p_program_id: programId });
       if (error) throw new Error(error.message);
       closeFinalDialog();
       await reloadPortalData();
@@ -926,6 +989,11 @@
     elements.closeInitialDialog.addEventListener("click", closeInitialDialog);
     elements.cancelInitialRegistration.addEventListener("click", closeInitialDialog);
     elements.finalForm.addEventListener("submit", handleFinalRegistration);
+    elements.eligibleParticipant.addEventListener("change", () => {
+      const participant = eligibleParticipants.find((item) => item.id === elements.eligibleParticipant.value);
+      const session = findSession(elements.finalSessionId.value);
+      elements.finalProgram.innerHTML = programOptions(session, participant?.previous_program_id || "");
+    });
     elements.closeFinalDialog.addEventListener("click", closeFinalDialog);
     elements.cancelFinalRegistration.addEventListener("click", closeFinalDialog);
     elements.closeCancelDialog.addEventListener("click", closeCancelDialog);
