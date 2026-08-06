@@ -123,7 +123,7 @@
             <div>
               <p class="section-kicker">Anexo I firmado</p>
               <h2 id="documentsTitle">Documentación de las sesiones</h2>
-              <p>El PDF se cifra en este dispositivo antes de enviarse.</p>
+              <p>Genera el listado oficial para firmas y entrega después el PDF escaneado.</p>
             </div>
             <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
@@ -231,6 +231,66 @@
     </div>
   </dialog>
 
+
+
+  <dialog id="annexGenerationDialog" class="modal-dialog" aria-labelledby="annexGenerationTitle">
+    <form id="annexGenerationForm" class="modal-card annex-generation-card" method="dialog" novalidate>
+      <div id="annexGenerationNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Documento oficial para firmas</p>
+          <h2 id="annexGenerationTitle">Generar Anexo I</h2>
+          <p id="annexGenerationSummary" class="muted">—</p>
+        </div>
+        <button id="closeAnnexGenerationDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <input id="annexGenerationSessionId" type="hidden">
+
+      <div class="form-grid">
+        <label>
+          <span>Modalidad</span>
+          <select id="annexModality" required>
+            <option value="in_person">Presencial</option>
+            <option value="online">Telemática</option>
+          </select>
+        </label>
+        <label>
+          <span>Provincia</span>
+          <input value="Granada" disabled>
+        </label>
+        <label>
+          <span>Nombre y apellidos de la corporación local</span>
+          <input id="annexRepresentativeName" maxlength="180" required>
+        </label>
+        <label>
+          <span>Cargo</span>
+          <input id="annexRepresentativePosition" maxlength="180" required>
+        </label>
+      </div>
+
+      <div class="annex-selection-heading">
+        <div>
+          <strong>Personas que aparecerán en el listado</strong>
+          <small id="annexParticipantCount">0 personas seleccionadas</small>
+        </div>
+        <label class="checkbox-label compact-checkbox">
+          <input id="annexSelectAll" type="checkbox">
+          <span>Seleccionar todas</span>
+        </label>
+      </div>
+      <div id="annexParticipantsList" class="annex-participants-list"></div>
+
+      <div class="privacy-box">
+        <p><strong>Tratamiento seguro:</strong> el SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelAnnexGeneration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitAnnexGeneration" class="button primary" type="submit">Generar PDF para firmas</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="documentUploadDialog" class="modal-dialog compact-dialog" aria-labelledby="documentUploadTitle">
     <form id="documentUploadForm" class="modal-card" method="dialog" novalidate>

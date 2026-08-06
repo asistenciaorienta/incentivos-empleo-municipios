@@ -8,6 +8,8 @@
   const AES_ADDITIONAL_DATA = new TextEncoder().encode(PAYLOAD_SCHEMA);
   const DOCUMENT_SCHEMA = "incentivos-empleo.signed-annex.v1";
   const MAX_SIGNED_ANNEX_BYTES = 12 * 1024 * 1024;
+  const GENERATED_ANNEX_SCHEMA = "incentivos-empleo.generated-annex.v1";
+  const ANNEX_KEY_STORAGE_PREFIX = "incentivos-generated-annex-key";
 
   const elements = {
     notice: document.querySelector("#appNotice"),
@@ -77,7 +79,21 @@
     signedAnnexFile: document.querySelector("#signedAnnexFile"),
     closeDocumentUploadDialog: document.querySelector("#closeDocumentUploadDialog"),
     cancelDocumentUpload: document.querySelector("#cancelDocumentUpload"),
-    submitDocumentUpload: document.querySelector("#submitDocumentUpload")
+    submitDocumentUpload: document.querySelector("#submitDocumentUpload"),
+    annexGenerationDialog: document.querySelector("#annexGenerationDialog"),
+    annexGenerationForm: document.querySelector("#annexGenerationForm"),
+    annexGenerationNotice: document.querySelector("#annexGenerationNotice"),
+    annexGenerationSessionId: document.querySelector("#annexGenerationSessionId"),
+    annexGenerationSummary: document.querySelector("#annexGenerationSummary"),
+    annexModality: document.querySelector("#annexModality"),
+    annexRepresentativeName: document.querySelector("#annexRepresentativeName"),
+    annexRepresentativePosition: document.querySelector("#annexRepresentativePosition"),
+    annexParticipantCount: document.querySelector("#annexParticipantCount"),
+    annexParticipantsList: document.querySelector("#annexParticipantsList"),
+    annexSelectAll: document.querySelector("#annexSelectAll"),
+    closeAnnexGenerationDialog: document.querySelector("#closeAnnexGenerationDialog"),
+    cancelAnnexGeneration: document.querySelector("#cancelAnnexGeneration"),
+    submitAnnexGeneration: document.querySelector("#submitAnnexGeneration")
   };
 
   let client = null;
@@ -90,6 +106,7 @@
   let activeEncryptionKey = null;
   let registrationToCancel = null;
   let municipalDocuments = [];
+  let annexGenerationRequests = [];
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -201,6 +218,49 @@
       binary += String.fromCharCode(...array.subarray(index, index + chunkSize));
     }
     return btoa(binary);
+  }
+
+
+  function base64ToBytes(value) {
+    const binary = atob(String(value || ""));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+
+  function annexKeyStorageName(requestId) {
+    return `${ANNEX_KEY_STORAGE_PREFIX}:${currentUser?.id || "user"}:${requestId}`;
+  }
+
+  function generatedAnnexAdditionalData(request) {
+    return JSON.stringify({
+      schema: GENERATED_ANNEX_SCHEMA,
+      version: 1,
+      request_id: String(request.id),
+      municipality_id: String(request.municipality_id),
+      session_id: String(request.session_id),
+    });
+  }
+
+  async function createAnnexDownloadKey(publicKeyPem) {
+    const rsaKey = await crypto.subtle.importKey(
+      "spki",
+      pemToArrayBuffer(publicKeyPem),
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      false,
+      ["encrypt"]
+    );
+    const aesKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    const rawKey = await crypto.subtle.exportKey("raw", aesKey);
+    const encryptedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, rsaKey, rawKey);
+    return {
+      rawKey: bytesToBase64(rawKey),
+      encryptedKey: bytesToBase64(encryptedKey),
+    };
   }
 
   function pemToArrayBuffer(pem) {
@@ -337,6 +397,18 @@
     })[status] ?? status;
   }
 
+
+  function annexGenerationStatusLabel(status) {
+    return ({
+      pending: "Pendiente de generar",
+      processing: "Generando en el SAE",
+      ready: "Preparado para descargar",
+      downloaded: "Descargado",
+      error: "Error de generación",
+      expired: "Descarga caducada",
+    })[status] ?? status;
+  }
+
   function statusLabel(status) {
     return ({ pending: "Pendiente", confirmed: "Confirmada", incident: "Incidencia", cancelled: "Cancelada", attended: "Realizada", absent: "No asistió" })[status] ?? status;
   }
@@ -416,22 +488,47 @@
       .sort((a, b) => Number(b.version) - Number(a.version))[0] ?? null;
   }
 
+  function latestGenerationForSession(sessionId) {
+    return annexGenerationRequests
+      .filter((item) => item.session_id === sessionId)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
+  }
+
   function documentSessionItem(group) {
     const document = latestDocumentForSession(group.session.id);
-    const canUpload = !document || document.validation_status === "incident" || document.sync_status === "error";
-    const actionLabel = document ? "Enviar nueva versión" : "Incorporar PDF";
-    const statusHtml = document
+    const generation = latestGenerationForSession(group.session.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const sessionCelebrated = group.session.session_date <= today;
+    const canUpload = sessionCelebrated && (!document || document.validation_status === "incident" || document.sync_status === "error");
+    const uploadLabel = document ? "Enviar nueva versión" : "Incorporar PDF firmado";
+    const documentStatusHtml = document
       ? `<div class="status-row"><span class="badge ${document.sync_status}">${escapeHtml(documentSyncLabel(document.sync_status))}</span><span class="badge ${document.validation_status === "validated" ? "synced" : document.validation_status === "incident" ? "incident" : "pending"}">${escapeHtml(documentValidationLabel(document.validation_status))}</span></div><small>Versión ${document.version}${document.processed_at ? ` · recibida por el SAE` : ""}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`
-      : `<span class="badge pending">Sin entregar</span><small>Debe incorporarse después de la sesión.</small>`;
+      : `<span class="badge pending">Sin PDF firmado</span><small>${sessionCelebrated ? "Pendiente de escanear y entregar." : "Se incorporará después de la sesión."}</small>`;
 
-    return `<article class="document-item">
+    const localKeyAvailable = generation ? Boolean(localStorage.getItem(annexKeyStorageName(generation.id))) : false;
+    const generationStatusHtml = generation
+      ? `<div class="status-row"><span class="badge ${generation.status === "ready" ? "synced" : generation.status === "error" ? "incident" : "pending"}">${escapeHtml(annexGenerationStatusLabel(generation.status))}</span></div><small>${generation.page_count ? `${generation.page_count} página${generation.page_count === 1 ? "" : "s"} · ` : ""}${generation.generated_at ? "generado por el SAE" : "solicitud en curso"}</small>${generation.incident_message ? `<small class="danger-text">${escapeHtml(generation.incident_message)}</small>` : ""}`
+      : `<span class="badge pending">No generado</span><small>Prepara el listado oficial para recoger las firmas.</small>`;
+
+    const canDownload = generation?.status === "ready" && localKeyAvailable && generation.storage_path;
+    const generationAction = generation?.status === "pending" || generation?.status === "processing"
+      ? `<button class="button secondary small" type="button" disabled>Generando…</button>`
+      : canDownload
+        ? `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar e imprimir</button>`
+        : `<button class="button secondary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generation?.status === "ready" && !localKeyAvailable ? "Generar en este dispositivo" : "Generar Anexo I"}</button>`;
+
+    return `<article class="document-item annex-document-item">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
         <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
-        <small>${group.count} persona${group.count === 1 ? "" : "s"} registrada${group.count === 1 ? "" : "s"}</small>
+        <small>${group.count} persona${group.count === 1 ? "" : "s"} disponible${group.count === 1 ? "" : "s"} para el listado</small>
       </div>
-      <div class="document-status-column">${statusHtml}</div>
-      <button class="button ${document ? "secondary" : "primary"} small js-upload-document" type="button" data-session-id="${group.session.id}" ${canUpload ? "" : "disabled"}>${canUpload ? actionLabel : "Sin acciones"}</button>
+      <div class="document-status-column"><strong>Listado para firmas</strong>${generationStatusHtml}</div>
+      <div class="document-status-column"><strong>PDF firmado</strong>${documentStatusHtml}</div>
+      <div class="document-actions-stack">
+        ${generationAction}
+        <button class="button ${document ? "secondary" : "primary"} small js-upload-document" type="button" data-session-id="${group.session.id}" ${canUpload ? "" : "disabled"}>${canUpload ? uploadLabel : sessionCelebrated ? "Sin acciones" : "Disponible tras la sesión"}</button>
+      </div>
     </article>`;
   }
 
@@ -441,19 +538,25 @@
     elements.documentsList.hidden = true;
     elements.refreshDocumentsButton.disabled = true;
     try {
-      const { data, error } = await client
-        .from("municipal_documents")
-        .select("id, session_id, version, sync_status, validation_status, incident_message, upload_status, created_at, processed_at")
-        .order("version", { ascending: false });
-      if (error) throw new Error(error.message);
-      municipalDocuments = Array.isArray(data) ? data : [];
+      const [documentsResult, generationsResult] = await Promise.all([
+        client
+          .from("municipal_documents")
+          .select("id, session_id, version, sync_status, validation_status, incident_message, upload_status, created_at, processed_at")
+          .order("version", { ascending: false }),
+        client
+          .from("annex_generation_requests")
+          .select("id, municipality_id, session_id, status, storage_bucket, storage_path, output_iv, plain_size_bytes, plain_sha256, encrypted_size_bytes, page_count, file_name, incident_message, created_at, generated_at, downloaded_at, expires_at")
+          .order("created_at", { ascending: false }),
+      ]);
+      if (documentsResult.error) throw new Error(documentsResult.error.message);
+      if (generationsResult.error) throw new Error(generationsResult.error.message);
+      municipalDocuments = Array.isArray(documentsResult.data) ? documentsResult.data : [];
+      annexGenerationRequests = Array.isArray(generationsResult.data) ? generationsResult.data : [];
       elements.documentTabCount.textContent = String(municipalDocuments.filter((item) => item.validation_status !== "superseded").length);
 
-      const today = new Date().toISOString().slice(0, 10);
       const grouped = new Map();
       for (const registration of registrations) {
-        if (!registration.session || registration.status === "cancelled") continue;
-        if (registration.session.session_date > today) continue;
+        if (!registration.session || ["cancelled", "absent"].includes(registration.status)) continue;
         const key = registration.session.id;
         const current = grouped.get(key) ?? { session: registration.session, count: 0 };
         current.count += 1;
@@ -474,6 +577,171 @@
 
   function findRegistrationSession(sessionId) {
     return registrations.find((item) => item.session?.id === sessionId)?.session ?? null;
+  }
+
+
+  function registrationsForAnnex(sessionId) {
+    return registrations.filter((registration) =>
+      registration.session?.id === sessionId
+      && !["cancelled", "absent"].includes(registration.status)
+      && registration.program_id
+      && registration.program_name_snapshot
+    );
+  }
+
+  function updateAnnexParticipantCount() {
+    const selected = elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]:checked').length;
+    elements.annexParticipantCount.textContent = `${selected} persona${selected === 1 ? "" : "s"} seleccionada${selected === 1 ? "" : "s"}`;
+    elements.annexSelectAll.checked = selected > 0
+      && selected === elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]').length;
+  }
+
+  function openAnnexGenerationDialog(sessionId) {
+    const session = findRegistrationSession(sessionId);
+    if (!session) return;
+    const available = registrationsForAnnex(sessionId);
+    if (available.length === 0) {
+      showNotice("warning", "No hay personas disponibles con programa asignado para generar el Anexo I.");
+      return;
+    }
+
+    const attended = available.filter((item) => item.status === "attended");
+    const initiallySelected = new Set((attended.length > 0 ? attended : available).map((item) => item.id));
+    clearNotice(elements.annexGenerationNotice);
+    elements.annexGenerationForm.reset();
+    elements.annexGenerationSessionId.value = session.id;
+    elements.annexGenerationSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
+    elements.annexModality.value = "in_person";
+    elements.annexRepresentativeName.value = currentProfile?.full_name || "";
+    elements.annexRepresentativePosition.value = "";
+    elements.annexParticipantsList.innerHTML = available.map((registration) => `
+      <label class="annex-participant-row">
+        <input type="checkbox" value="${registration.id}" ${initiallySelected.has(registration.id) ? "checked" : ""}>
+        <span><strong>${escapeHtml(registration.participant?.display_name || "Persona")}</strong><small>${escapeHtml(registration.participant?.masked_document || "Documento protegido")} · ${escapeHtml(registration.program_name_snapshot)}</small></span>
+      </label>
+    `).join("");
+    updateAnnexParticipantCount();
+    elements.annexGenerationDialog.showModal();
+  }
+
+  function closeAnnexGenerationDialog() {
+    elements.annexGenerationForm.reset();
+    elements.annexParticipantsList.innerHTML = "";
+    clearNotice(elements.annexGenerationNotice);
+    elements.annexGenerationDialog.close();
+  }
+
+  async function handleAnnexGeneration(event) {
+    event.preventDefault();
+    clearNotice(elements.annexGenerationNotice);
+    const sessionId = elements.annexGenerationSessionId.value;
+    const registrationIds = [...elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+    const representativeName = normalizePersonText(elements.annexRepresentativeName.value);
+    const representativePosition = normalizePersonText(elements.annexRepresentativePosition.value);
+
+    if (registrationIds.length < 1) {
+      showNotice("warning", "Selecciona al menos una persona.", elements.annexGenerationNotice);
+      return;
+    }
+    if (!representativeName || !representativePosition) {
+      showNotice("warning", "Indica el nombre y el cargo de la corporación local.", elements.annexGenerationNotice);
+      return;
+    }
+    if (!activeEncryptionKey) {
+      showNotice("error", "No está disponible la clave pública de cifrado.", elements.annexGenerationNotice);
+      return;
+    }
+
+    elements.submitAnnexGeneration.disabled = true;
+    elements.submitAnnexGeneration.textContent = "Preparando cifrado…";
+    try {
+      const key = await createAnnexDownloadKey(activeEncryptionKey.public_key_pem);
+      elements.submitAnnexGeneration.textContent = "Solicitando al SAE…";
+      const { data, error } = await client.rpc("begin_annex_generation", {
+        p_session_id: sessionId,
+        p_registration_ids: registrationIds,
+        p_modality: elements.annexModality.value,
+        p_representative_name: representativeName,
+        p_representative_position: representativePosition,
+        p_key_id: activeEncryptionKey.id,
+        p_encrypted_download_key: key.encryptedKey,
+      });
+      if (error) throw new Error(error.message);
+      const response = Array.isArray(data) ? data[0] : data;
+      if (!response?.request_id) throw new Error("Supabase no devolvió la solicitud de generación.");
+      localStorage.setItem(annexKeyStorageName(response.request_id), key.rawKey);
+      closeAnnexGenerationDialog();
+      await loadDocuments();
+      showNotice("success", "El SAE está generando el Anexo I. Estará disponible en aproximadamente un minuto.");
+    } catch (error) {
+      showNotice("error", error.message || "No se pudo solicitar el Anexo I.", elements.annexGenerationNotice);
+    } finally {
+      elements.submitAnnexGeneration.disabled = false;
+      elements.submitAnnexGeneration.textContent = "Generar PDF para firmas";
+    }
+  }
+
+  async function downloadGeneratedAnnex(requestId) {
+    const request = annexGenerationRequests.find((item) => item.id === requestId);
+    if (!request || request.status !== "ready" || !request.storage_path) return;
+    const rawKeyBase64 = localStorage.getItem(annexKeyStorageName(request.id));
+    if (!rawKeyBase64) {
+      showNotice("warning", "Este PDF se solicitó desde otro navegador o se eliminó su clave local. Genera una nueva copia en este dispositivo.");
+      return;
+    }
+
+    clearNotice();
+    try {
+      const { data, error } = await client.storage
+        .from(request.storage_bucket)
+        .download(request.storage_path);
+      if (error) throw new Error(error.message);
+      const encrypted = new Uint8Array(await data.arrayBuffer());
+      if (encrypted.byteLength !== Number(request.encrypted_size_bytes)) {
+        throw new Error("El tamaño del archivo cifrado no coincide.");
+      }
+
+      const key = await crypto.subtle.importKey(
+        "raw",
+        base64ToBytes(rawKeyBase64),
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"]
+      );
+      const plain = await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: base64ToBytes(request.output_iv),
+          additionalData: new TextEncoder().encode(generatedAnnexAdditionalData(request)),
+          tagLength: 128,
+        },
+        key,
+        encrypted
+      );
+      const bytes = new Uint8Array(plain);
+      const header = new TextDecoder("ascii").decode(bytes.slice(0, 5));
+      if (header !== "%PDF-") throw new Error("El contenido descifrado no es un PDF válido.");
+      const digest = bytesToHex(await crypto.subtle.digest("SHA-256", bytes));
+      if (digest !== request.plain_sha256) throw new Error("La huella del PDF no coincide.");
+
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = request.file_name || "Anexo_I.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+
+      const { error: markError } = await client.rpc("mark_annex_generation_downloaded", { p_request_id: request.id });
+      if (markError) throw new Error(markError.message);
+      await client.storage.from(request.storage_bucket).remove([request.storage_path]);
+      localStorage.removeItem(annexKeyStorageName(request.id));
+      await loadDocuments();
+      showNotice("success", "El Anexo I se ha descargado. Ya puede imprimirse para recoger las firmas.");
+    } catch (error) {
+      showNotice("error", `No se pudo descargar y descifrar el Anexo I: ${error.message}`);
+    }
   }
 
   function openDocumentUploadDialog(sessionId) {
@@ -635,7 +903,7 @@
         .select(`
           id, phase, status, sync_status, incident_message, created_at, program_id, program_name_snapshot,
           participant:participants (id, display_name, masked_document, progress_status, sync_status, incident_message),
-          session:sessions (id, title, session_type, session_date, start_time, end_time)
+          session:sessions (id, title, session_type, session_date, start_time, end_time, trainer, status)
         `)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
@@ -980,8 +1248,12 @@
       if (button && !button.disabled) openCancelDialog(button.dataset.registrationId);
     });
     elements.documentsList.addEventListener("click", (event) => {
-      const button = event.target.closest(".js-upload-document");
-      if (button && !button.disabled) openDocumentUploadDialog(button.dataset.sessionId);
+      const uploadButton = event.target.closest(".js-upload-document");
+      const generateButton = event.target.closest(".js-generate-annex");
+      const downloadButton = event.target.closest(".js-download-generated");
+      if (uploadButton && !uploadButton.disabled) openDocumentUploadDialog(uploadButton.dataset.sessionId);
+      if (generateButton && !generateButton.disabled) openAnnexGenerationDialog(generateButton.dataset.sessionId);
+      if (downloadButton && !downloadButton.disabled) void downloadGeneratedAnnex(downloadButton.dataset.requestId);
     });
     [elements.firstName, elements.firstSurname, elements.secondSurname, elements.documentNumber].forEach((input) => input.addEventListener("input", updateSafePreview));
     elements.documentType.addEventListener("change", updateSafePreview);
@@ -1002,6 +1274,14 @@
     elements.documentUploadForm.addEventListener("submit", handleDocumentUpload);
     elements.closeDocumentUploadDialog.addEventListener("click", closeDocumentUploadDialog);
     elements.cancelDocumentUpload.addEventListener("click", closeDocumentUploadDialog);
+    elements.annexGenerationForm.addEventListener("submit", handleAnnexGeneration);
+    elements.closeAnnexGenerationDialog.addEventListener("click", closeAnnexGenerationDialog);
+    elements.cancelAnnexGeneration.addEventListener("click", closeAnnexGenerationDialog);
+    elements.annexSelectAll.addEventListener("change", () => {
+      elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = elements.annexSelectAll.checked; });
+      updateAnnexParticipantCount();
+    });
+    elements.annexParticipantsList.addEventListener("change", updateAnnexParticipantCount);
   }
 
   async function initialize() {

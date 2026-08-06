@@ -739,3 +739,70 @@ select:focus {
 /* v1.1 · Programa por inscripción */
 .field-help { display: block; margin-top: .35rem; color: var(--muted); font-size: .82rem; }
 .registration-session small { display: block; }
+
+
+/* v1.2 · generación cifrada del Anexo I oficial */
+.annex-document-item {
+  grid-template-columns: minmax(220px, 1.25fr) minmax(180px, .9fr) minmax(180px, .9fr) auto;
+  align-items: center;
+}
+.document-status-column > strong {
+  display: block;
+  margin-bottom: .35rem;
+  font-size: .82rem;
+  color: var(--muted, #5f6b66);
+}
+.document-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  min-width: 170px;
+}
+.annex-generation-card {
+  width: min(880px, calc(100vw - 2rem));
+}
+.annex-selection-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: .5rem;
+}
+.annex-selection-heading small {
+  display: block;
+  margin-top: .2rem;
+  color: var(--muted, #66736d);
+}
+.compact-checkbox {
+  margin: 0;
+  white-space: nowrap;
+}
+.annex-participants-list {
+  max-height: 330px;
+  overflow: auto;
+  border: 1px solid #d9e1dd;
+  border-radius: 12px;
+  background: #fff;
+}
+.annex-participant-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem .9rem;
+  border-bottom: 1px solid #edf1ef;
+  cursor: pointer;
+}
+.annex-participant-row:last-child { border-bottom: 0; }
+.annex-participant-row:hover { background: #f7faf8; }
+.annex-participant-row input { width: 18px; height: 18px; }
+.annex-participant-row strong,
+.annex-participant-row small { display: block; }
+.annex-participant-row small { margin-top: .15rem; color: var(--muted, #66736d); }
+@media (max-width: 920px) {
+  .annex-document-item { grid-template-columns: 1fr; }
+  .document-actions-stack { min-width: 0; }
+}
+@media (max-width: 620px) {
+  .annex-selection-heading { align-items: flex-start; flex-direction: column; }
+}
