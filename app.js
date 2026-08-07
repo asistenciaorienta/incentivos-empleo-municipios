@@ -66,6 +66,17 @@
     closeFinalDialog: document.querySelector("#closeFinalDialog"),
     cancelFinalRegistration: document.querySelector("#cancelFinalRegistration"),
     submitFinalRegistration: document.querySelector("#submitFinalRegistration"),
+    changeSessionDialog: document.querySelector("#changeSessionDialog"),
+    changeSessionForm: document.querySelector("#changeSessionForm"),
+    changeSessionNotice: document.querySelector("#changeSessionNotice"),
+    changeRegistrationId: document.querySelector("#changeRegistrationId"),
+    changeParticipantSummary: document.querySelector("#changeParticipantSummary"),
+    changeProgramSummary: document.querySelector("#changeProgramSummary"),
+    changeCurrentSessionSummary: document.querySelector("#changeCurrentSessionSummary"),
+    changeTargetSession: document.querySelector("#changeTargetSession"),
+    closeChangeSessionDialog: document.querySelector("#closeChangeSessionDialog"),
+    cancelChangeSession: document.querySelector("#cancelChangeSession"),
+    confirmChangeSession: document.querySelector("#confirmChangeSession"),
     cancelDialog: document.querySelector("#cancelDialog"),
     cancelDialogText: document.querySelector("#cancelDialogText"),
     closeCancelDialog: document.querySelector("#closeCancelDialog"),
@@ -115,6 +126,7 @@
   let programs = [];
   let activeEncryptionKey = null;
   let registrationToCancel = null;
+  let registrationToChange = null;
   let municipalDocuments = [];
   let annexGenerationRequests = [];
   let documentViewMode = "create";
@@ -513,7 +525,17 @@
   function registrationItem(registration) {
     const participant = registration.participant ?? {};
     const session = registration.session ?? {};
-    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status);
+    const transferred = registration.status === "cancelled" && Boolean(registration.transferred_to_session_id);
+    const today = new Date().toISOString().slice(0, 10);
+    const canChange = ["pending", "confirmed"].includes(registration.status)
+      && registration.sync_status !== "processing"
+      && session.session_date >= today
+      && !transferred;
+    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status) && !transferred;
+    const statusText = transferred ? "Trasladada" : statusLabel(registration.status);
+    const statusClass = transferred ? "transferred" : registration.status;
+    const transferredTo = registration.transferred_to_session;
+
     return `
       <article class="registration-item">
         <div class="registration-person">
@@ -525,15 +547,20 @@
           <strong>${escapeHtml(session.title || "Sesión")}</strong>
           <small>${escapeHtml(formatDate(session.session_date))} · ${registration.phase === "initial" ? "Inicial" : "Final"}</small>
           <small>Programa: ${escapeHtml(registration.program_name_snapshot || "Sin programa")}</small>
+          ${transferred && transferredTo
+            ? `<small class="transfer-note">Trasladada a: ${escapeHtml(transferredTo.title)} · ${escapeHtml(formatDate(transferredTo.session_date))}</small>`
+            : ""}
           <div class="status-row">
-            <span class="badge ${registration.status}">${escapeHtml(statusLabel(registration.status))}</span>
+            <span class="badge ${statusClass}">${escapeHtml(statusText)}</span>
             <span class="badge ${registration.sync_status}">${escapeHtml(syncLabel(registration.sync_status))}</span>
           </div>
         </div>
-        <button class="button secondary small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>${canCancel ? "Cancelar inscripción" : "Sin acciones"}</button>
+        <div class="registration-actions">
+          <button class="button primary small js-change-session" type="button" data-registration-id="${registration.id}" ${canChange ? "" : "disabled"}>${canChange ? "Cambiar de sesión" : "Cambio no disponible"}</button>
+          <button class="button secondary small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>${canCancel ? "Cancelar inscripción" : "Sin cancelación"}</button>
+        </div>
       </article>`;
   }
-
 
   function latestDocumentForSession(sessionId) {
     return municipalDocuments
@@ -1029,8 +1056,11 @@
         .from("session_registrations")
         .select(`
           id, phase, status, sync_status, incident_message, created_at, program_id, program_name_snapshot,
+          transferred_from_registration_id, transferred_to_session_id, transferred_at,
           participant:participants (id, display_name, masked_document, progress_status, sync_status, incident_message),
-          session:sessions (id, title, session_type, session_date, start_time, end_time, trainer, status)
+          session:sessions (id, title, session_type, session_date, start_time, end_time, trainer, status),
+          transferred_to_session:sessions!session_registrations_transferred_to_session_id_fkey
+            (id, title, session_type, session_date, start_time, end_time, status)
         `)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
@@ -1248,6 +1278,130 @@
     }
   }
 
+
+  function closeChangeSessionDialog() {
+    registrationToChange = null;
+    elements.changeSessionForm.reset();
+    clearNotice(elements.changeSessionNotice);
+    elements.changeSessionDialog.close();
+  }
+
+  function changeSessionCandidates(registration) {
+    const participantId = registration?.participant?.id;
+    const currentSessionId = registration?.session?.id;
+
+    return sessions.filter((session) => {
+      if (!session.registration_open || Number(session.regular_available ?? 0) < 1) return false;
+      if (session.session_type !== registration.phase) return false;
+      if (session.id === currentSessionId) return false;
+
+      const alreadyUsed = registrations.some((item) =>
+        item.participant?.id === participantId
+        && item.session?.id === session.id
+      );
+
+      return !alreadyUsed;
+    });
+  }
+
+  function openChangeSessionDialog(registrationId) {
+    const registration = registrations.find((item) => item.id === registrationId);
+    if (!registration) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (!["pending", "confirmed"].includes(registration.status)) {
+      showNotice("warning", "Esta inscripción no puede cambiarse mientras tenga ese estado.");
+      return;
+    }
+    if (registration.sync_status === "processing") {
+      showNotice("warning", "La inscripción se está sincronizando. Pulsa Actualizar dentro de unos segundos.");
+      return;
+    }
+    if (!registration.session || registration.session.session_date < today) {
+      showNotice("warning", "No se puede trasladar una inscripción de una sesión ya celebrada.");
+      return;
+    }
+
+    registrationToChange = registration;
+    const participant = registration.participant ?? {};
+    const candidates = changeSessionCandidates(registration);
+
+    elements.changeRegistrationId.value = registration.id;
+    elements.changeParticipantSummary.textContent =
+      `${participant.display_name || "Persona"} · ${participant.masked_document || "Documento protegido"}`;
+    elements.changeProgramSummary.textContent = registration.program_name_snapshot || "Sin programa";
+    elements.changeCurrentSessionSummary.textContent =
+      `${registration.session.title} · ${formatDate(registration.session.session_date)} · ${formatTime(registration.session.start_time)}`;
+
+    if (candidates.length === 0) {
+      elements.changeTargetSession.innerHTML = '<option value="">No hay otra sesión disponible</option>';
+      elements.changeTargetSession.disabled = true;
+      elements.confirmChangeSession.disabled = true;
+      showNotice(
+        "warning",
+        "No hay otra sesión del mismo tipo, abierta y con plazas disponibles para esta persona.",
+        elements.changeSessionNotice,
+      );
+    } else {
+      elements.changeTargetSession.disabled = false;
+      elements.confirmChangeSession.disabled = false;
+      elements.changeTargetSession.innerHTML =
+        '<option value="">Selecciona la nueva sesión</option>'
+        + candidates.map((session) => `
+          <option value="${session.id}">
+            ${escapeHtml(session.title)} · ${escapeHtml(formatDate(session.session_date))} · ${escapeHtml(formatTime(session.start_time))} · ${Number(session.regular_available ?? 0)} plazas
+          </option>
+        `).join("");
+    }
+
+    elements.changeSessionDialog.showModal();
+  }
+
+  async function handleChangeSession(event) {
+    event.preventDefault();
+    clearNotice(elements.changeSessionNotice);
+
+    if (!registrationToChange) {
+      showNotice("error", "No se ha localizado la inscripción que quieres trasladar.", elements.changeSessionNotice);
+      return;
+    }
+
+    const targetSessionId = elements.changeTargetSession.value;
+    if (!targetSessionId) {
+      showNotice("warning", "Selecciona la nueva sesión.", elements.changeSessionNotice);
+      return;
+    }
+
+    elements.confirmChangeSession.disabled = true;
+    elements.confirmChangeSession.textContent = "Cambiando…";
+
+    try {
+      const { data, error } = await client.rpc("change_registration_session", {
+        p_registration_id: registrationToChange.id,
+        p_new_session_id: targetSessionId,
+      });
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("No se pudo crear la nueva inscripción.");
+
+      closeChangeSessionDialog();
+      await reloadPortalData();
+      setActiveSection("registrationsSection");
+      showNotice(
+        "success",
+        "Cambio realizado. La plaza anterior se ha liberado y la persona ha quedado inscrita en la nueva sesión.",
+      );
+    } catch (error) {
+      showNotice(
+        "error",
+        error.message || "No se pudo realizar el cambio de sesión.",
+        elements.changeSessionNotice,
+      );
+    } finally {
+      elements.confirmChangeSession.disabled = false;
+      elements.confirmChangeSession.textContent = "Confirmar cambio de sesión";
+    }
+  }
+
   function openCancelDialog(registrationId) {
     registrationToCancel = registrations.find((item) => item.id === registrationId) ?? null;
     if (!registrationToCancel) return;
@@ -1390,8 +1544,10 @@
       if (finalButton) openFinalDialog(finalButton.dataset.sessionId);
     });
     elements.registrationsList.addEventListener("click", (event) => {
-      const button = event.target.closest(".js-cancel-registration");
-      if (button && !button.disabled) openCancelDialog(button.dataset.registrationId);
+      const changeButton = event.target.closest(".js-change-session");
+      const cancelButton = event.target.closest(".js-cancel-registration");
+      if (changeButton && !changeButton.disabled) openChangeSessionDialog(changeButton.dataset.registrationId);
+      if (cancelButton && !cancelButton.disabled) openCancelDialog(cancelButton.dataset.registrationId);
     });
     elements.documentsList.addEventListener("click", (event) => {
       const uploadButton = event.target.closest(".js-upload-document");
@@ -1414,6 +1570,9 @@
     });
     elements.closeFinalDialog.addEventListener("click", closeFinalDialog);
     elements.cancelFinalRegistration.addEventListener("click", closeFinalDialog);
+    elements.changeSessionForm.addEventListener("submit", handleChangeSession);
+    elements.closeChangeSessionDialog.addEventListener("click", closeChangeSessionDialog);
+    elements.cancelChangeSession.addEventListener("click", closeChangeSessionDialog);
     elements.closeCancelDialog.addEventListener("click", closeCancelDialog);
     elements.keepRegistrationButton.addEventListener("click", closeCancelDialog);
     elements.confirmCancelButton.addEventListener("click", confirmCancellation);

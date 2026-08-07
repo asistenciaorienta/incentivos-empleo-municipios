@@ -497,7 +497,7 @@ input:focus {
 .registration-item {
   padding: 1rem;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(190px, 1.15fr) auto;
+  grid-template-columns: minmax(180px, .9fr) minmax(220px, 1.2fr) minmax(180px, auto);
   align-items: center;
   gap: 1rem;
   border: 1px solid var(--line);
@@ -1035,5 +1035,62 @@ select:focus {
   .management-action-arrow {
     grid-column: 3;
     grid-row: 1 / span 2;
+  }
+}
+
+
+/* v1.3 · Cambio de sesión */
+.registration-actions {
+  display: grid;
+  gap: .5rem;
+  justify-items: stretch;
+  min-width: 170px;
+}
+
+.badge.transferred {
+  color: #38546b;
+  background: #edf3f7;
+}
+
+.transfer-note {
+  color: var(--sae-green-dark) !important;
+  font-weight: 750;
+}
+
+.transfer-summary {
+  margin: 0 0 1rem;
+  display: grid;
+  gap: .65rem;
+}
+
+.transfer-summary > div {
+  padding: .8rem .9rem;
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  background: var(--surface-soft);
+}
+
+.transfer-summary span,
+.transfer-summary strong {
+  display: block;
+}
+
+.transfer-summary span {
+  margin-bottom: .2rem;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+
+#changeSessionDialog select {
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .registration-actions {
+    width: 100%;
+    min-width: 0;
   }
 }
