@@ -1,6 +1,5 @@
 (() => {
   "use strict";
-
   const config = window.INCENTIVOS_CONFIG ?? {};
   const url = String(config.SUPABASE_URL ?? "").trim();
   const publishableKey = String(config.SUPABASE_PUBLISHABLE_KEY ?? "").trim();
