@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260807-anexo-v1-2-1">
+  <link rel="stylesheet" href="./styles.css?v=20260807-menu-v1-2-2">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -16,7 +16,7 @@
       <div>
         <p class="eyebrow">Servicio Andaluz de Empleo · Granada</p>
         <h1>Incentivos al empleo</h1>
-        <p class="header-subtitle">Portal municipal de gestión de inscripciones</p>
+        <p class="header-subtitle">Portal municipal de gestión de sesiones y Anexos I</p>
       </div>
     </div>
   </header>
@@ -70,17 +70,80 @@
         <button id="logoutButton" class="button secondary" type="button">Cerrar sesión</button>
       </div>
 
-      <nav class="portal-tabs" aria-label="Secciones del portal">
-        <button class="tab-button active" type="button" data-view="sessionsSection">Sesiones</button>
-        <button class="tab-button" type="button" data-view="registrationsSection">
-          Mis inscripciones <span id="registrationTabCount" class="tab-count">0</span>
-        </button>
-        <button class="tab-button" type="button" data-view="documentsSection">
-          Documentación <span id="documentTabCount" class="tab-count">0</span>
-        </button>
-      </nav>
+      <section id="dashboardSection" class="portal-section portal-dashboard" aria-labelledby="dashboardTitle">
+        <div class="dashboard-intro">
+          <p class="section-kicker">Menú de gestión</p>
+          <h2 id="dashboardTitle">¿Qué necesitas gestionar?</h2>
+          <p>Selecciona una de las opciones para acceder directamente a la tarea correspondiente.</p>
+        </div>
 
-      <section id="sessionsSection" class="portal-section">
+        <div class="management-grid">
+          <article class="management-area card" aria-labelledby="sessionsManagementTitle">
+            <div class="management-area-heading">
+              <span class="management-area-index" aria-hidden="true">01</span>
+              <div>
+                <p class="section-kicker">Sesiones grupales</p>
+                <h3 id="sessionsManagementTitle">Gestión de Sesiones Grupales</h3>
+                <p>Alta y seguimiento de las personas participantes en las sesiones.</p>
+              </div>
+            </div>
+            <div class="management-actions">
+              <button class="management-action js-dashboard-action" type="button" data-action="participants">
+                <span class="management-action-number" aria-hidden="true">1</span>
+                <span><strong>Alta participantes</strong><small>Inscribir personas en las sesiones iniciales o finales disponibles.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="management-action js-dashboard-action" type="button" data-action="changes">
+                <span class="management-action-number" aria-hidden="true">2</span>
+                <span><strong>Cambios de sesión</strong><small>Consultar las inscripciones existentes y gestionar cambios o cancelaciones.</small></span>
+                <span class="menu-count" id="registrationTabCount">0</span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="management-action js-dashboard-action" type="button" data-action="incidents">
+                <span class="management-action-number" aria-hidden="true">3</span>
+                <span><strong>Incidencias</strong><small>Revisar inscripciones o documentación que necesitan atención.</small></span>
+                <span class="menu-count attention-count" id="incidentMenuCount">0</span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="management-area card" aria-labelledby="annexManagementTitle">
+            <div class="management-area-heading">
+              <span class="management-area-index" aria-hidden="true">02</span>
+              <div>
+                <p class="section-kicker">Anexo I</p>
+                <h3 id="annexManagementTitle">Gestión de Anexos I</h3>
+                <p>Preparación, entrega y recuperación de los documentos de asistencia.</p>
+              </div>
+            </div>
+            <div class="management-actions">
+              <button class="management-action js-dashboard-action" type="button" data-action="annex-create">
+                <span class="management-action-number" aria-hidden="true">1</span>
+                <span><strong>Creación de Anexos I</strong><small>Generar el listado oficial para imprimir y recoger las firmas.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="management-action js-dashboard-action" type="button" data-action="annex-upload">
+                <span class="management-action-number" aria-hidden="true">2</span>
+                <span><strong>Subida de Anexos I</strong><small>Enviar de forma cifrada el PDF escaneado con las firmas.</small></span>
+                <span class="menu-count" id="documentTabCount">0</span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="management-action js-dashboard-action" type="button" data-action="annex-download">
+                <span class="management-action-number" aria-hidden="true">3</span>
+                <span><strong>Descarga de Anexos I</strong><small>Descargar los Anexos I generados y disponibles en este dispositivo.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="sessionsSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
+          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Alta participantes</h2></div>
+        </div>
         <section class="summary-grid" aria-label="Resumen">
           <article class="summary-card"><span>Sesiones disponibles</span><strong id="sessionCount">0</strong></article>
           <article class="summary-card"><span>Sesiones iniciales</span><strong id="initialCount">0</strong></article>
@@ -92,6 +155,7 @@
             <div>
               <p class="section-kicker">Programación</p>
               <h2 id="sessionsTitle">Sesiones publicadas</h2>
+              <p>Selecciona una sesión para dar de alta a una persona participante.</p>
             </div>
             <button id="refreshButton" class="button secondary small" type="button">Actualizar</button>
           </div>
@@ -102,12 +166,16 @@
       </section>
 
       <section id="registrationsSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
+          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Cambios de sesión</h2></div>
+        </div>
         <section class="card sessions-card" aria-labelledby="registrationsTitle">
           <div class="card-heading sessions-heading">
             <div>
               <p class="section-kicker">Seguimiento municipal</p>
-              <h2 id="registrationsTitle">Personas inscritas</h2>
-              <p>Solo se muestran datos identificativos reducidos.</p>
+              <h2 id="registrationsTitle">Inscripciones existentes</h2>
+              <p>Consulta las personas inscritas y gestiona las cancelaciones necesarias antes de realizar una nueva inscripción.</p>
             </div>
             <button id="refreshRegistrationsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
@@ -117,18 +185,42 @@
         </section>
       </section>
 
-      <section id="documentsSection" class="portal-section" hidden>
+      <section id="incidentsSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
+          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Incidencias</h2></div>
+        </div>
+        <section class="card sessions-card" aria-labelledby="incidentsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Elementos que requieren atención</p>
+              <h2 id="incidentsTitle">Incidencias pendientes</h2>
+              <p>Se muestran las incidencias comunicadas por el SAE o los errores de sincronización detectados.</p>
+            </div>
+            <button id="refreshIncidentsButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+          <div id="incidentsLoading" class="empty-state" hidden>Actualizando incidencias…</div>
+          <div id="incidentsEmpty" class="empty-state">No hay incidencias pendientes.</div>
+          <div id="incidentsList" class="incident-list" hidden></div>
+        </section>
+      </section>
+
+      <section id="documentsSection" class="portal-section" hidden data-mode="create">
+        <div class="section-navigation">
+          <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
+          <div><p class="section-kicker">Gestión de Anexos I</p><h2 id="documentsModeHeading">Creación de Anexos I</h2></div>
+        </div>
         <section class="card sessions-card" aria-labelledby="documentsTitle">
           <div class="card-heading sessions-heading">
             <div>
-              <p class="section-kicker">Anexo I firmado</p>
-              <h2 id="documentsTitle">Documentación de las sesiones</h2>
-              <p>Genera el listado oficial para firmas y entrega después el PDF escaneado.</p>
+              <p id="documentsKicker" class="section-kicker">Preparación para firmas</p>
+              <h2 id="documentsTitle">Crear Anexo I</h2>
+              <p id="documentsDescription">Genera el listado oficial de personas para imprimirlo y recoger las firmas.</p>
             </div>
             <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
           <div id="documentsLoading" class="empty-state">Cargando documentación…</div>
-          <div id="documentsEmpty" class="empty-state" hidden>No hay sesiones celebradas con inscripciones de este ayuntamiento.</div>
+          <div id="documentsEmpty" class="empty-state" hidden>No hay sesiones con inscripciones disponibles.</div>
           <div id="documentsList" class="document-list" hidden></div>
         </section>
       </section>
@@ -322,6 +414,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260807-anexo-v1-2-1"></script>
+  <script src="./app.js?v=20260807-menu-v1-2-2"></script>
 </body>
 </html>

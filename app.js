@@ -28,6 +28,11 @@
     initialCount: document.querySelector("#initialCount"),
     finalCount: document.querySelector("#finalCount"),
     registrationTabCount: document.querySelector("#registrationTabCount"),
+    incidentMenuCount: document.querySelector("#incidentMenuCount"),
+    refreshIncidentsButton: document.querySelector("#refreshIncidentsButton"),
+    incidentsLoading: document.querySelector("#incidentsLoading"),
+    incidentsEmpty: document.querySelector("#incidentsEmpty"),
+    incidentsList: document.querySelector("#incidentsList"),
     sessionsLoading: document.querySelector("#sessionsLoading"),
     sessionsEmpty: document.querySelector("#sessionsEmpty"),
     sessionsGrid: document.querySelector("#sessionsGrid"),
@@ -68,6 +73,11 @@
     confirmCancelButton: document.querySelector("#confirmCancelButton"),
     documentTabCount: document.querySelector("#documentTabCount"),
     refreshDocumentsButton: document.querySelector("#refreshDocumentsButton"),
+    documentsSection: document.querySelector("#documentsSection"),
+    documentsModeHeading: document.querySelector("#documentsModeHeading"),
+    documentsKicker: document.querySelector("#documentsKicker"),
+    documentsTitle: document.querySelector("#documentsTitle"),
+    documentsDescription: document.querySelector("#documentsDescription"),
     documentsLoading: document.querySelector("#documentsLoading"),
     documentsEmpty: document.querySelector("#documentsEmpty"),
     documentsList: document.querySelector("#documentsList"),
@@ -107,6 +117,7 @@
   let registrationToCancel = null;
   let municipalDocuments = [];
   let annexGenerationRequests = [];
+  let documentViewMode = "create";
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -141,9 +152,51 @@
     document.querySelectorAll(".portal-section").forEach((section) => {
       section.hidden = section.id !== sectionId;
     });
-    document.querySelectorAll(".tab-button").forEach((button) => {
-      button.classList.toggle("active", button.dataset.view === sectionId);
-    });
+  }
+
+  function openDashboard() {
+    clearNotice();
+    setActiveSection("dashboardSection");
+  }
+
+  function configureDocumentView(mode) {
+    documentViewMode = ["create", "upload", "download"].includes(mode) ? mode : "create";
+    elements.documentsSection.dataset.mode = documentViewMode;
+    const copy = {
+      create: {
+        heading: "Creación de Anexos I",
+        kicker: "Preparación para firmas",
+        title: "Crear Anexo I",
+        description: "Genera el listado oficial de personas para imprimirlo y recoger las firmas.",
+        empty: "No hay sesiones con inscripciones disponibles para generar el Anexo I."
+      },
+      upload: {
+        heading: "Subida de Anexos I",
+        kicker: "Entrega segura",
+        title: "Subir Anexo I firmado",
+        description: "Incorpora el PDF escaneado con las firmas. El archivo se cifra antes de salir del navegador.",
+        empty: "No hay sesiones disponibles para incorporar documentación firmada."
+      },
+      download: {
+        heading: "Descarga de Anexos I",
+        kicker: "Documentos generados",
+        title: "Descargar Anexo I",
+        description: "Recupera los Anexos I que ya han sido generados por el SAE para este dispositivo.",
+        empty: "No hay sesiones con Anexos I disponibles para descargar."
+      }
+    }[documentViewMode];
+    elements.documentsModeHeading.textContent = copy.heading;
+    elements.documentsKicker.textContent = copy.kicker;
+    elements.documentsTitle.textContent = copy.title;
+    elements.documentsDescription.textContent = copy.description;
+    elements.documentsEmpty.textContent = copy.empty;
+  }
+
+  function openDocumentSection(mode) {
+    clearNotice();
+    configureDocumentView(mode);
+    renderDocuments();
+    setActiveSection("documentsSection");
   }
 
   function formatDate(value) {
@@ -494,6 +547,18 @@
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
   }
 
+  function documentGroups() {
+    const grouped = new Map();
+    for (const registration of registrations) {
+      if (!registration.session || ["cancelled", "absent"].includes(registration.status)) continue;
+      const key = registration.session.id;
+      const current = grouped.get(key) ?? { session: registration.session, count: 0 };
+      current.count += 1;
+      grouped.set(key, current);
+    }
+    return [...grouped.values()].sort((a, b) => b.session.session_date.localeCompare(a.session.session_date));
+  }
+
   function documentSessionItem(group) {
     const document = latestDocumentForSession(group.session.id);
     const generation = latestGenerationForSession(group.session.id);
@@ -511,25 +576,101 @@
       : `<span class="badge pending">No generado</span><small>Prepara el listado oficial para recoger las firmas.</small>`;
 
     const canDownload = generation?.status === "ready" && localKeyAvailable && generation.storage_path;
-    const generationAction = generation?.status === "pending" || generation?.status === "processing"
-      ? `<button class="button secondary small" type="button" disabled>Generando…</button>`
-      : canDownload
-        ? `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar e imprimir</button>`
-        : `<button class="button secondary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generation?.status === "ready" && !localKeyAvailable ? "Generar en este dispositivo" : "Generar Anexo I"}</button>`;
+    let statusTitle = "Listado para firmas";
+    let statusHtml = generationStatusHtml;
+    let actionHtml = "";
 
-    return `<article class="document-item annex-document-item">
+    if (documentViewMode === "create") {
+      if (generation?.status === "pending" || generation?.status === "processing") {
+        actionHtml = `<button class="button secondary small" type="button" disabled>Generando…</button>`;
+      } else {
+        actionHtml = `<button class="button primary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generation ? "Generar nueva copia" : "Generar Anexo I"}</button>`;
+      }
+    } else if (documentViewMode === "upload") {
+      statusTitle = "PDF firmado";
+      statusHtml = documentStatusHtml;
+      actionHtml = `<button class="button ${document ? "secondary" : "primary"} small js-upload-document" type="button" data-session-id="${group.session.id}" ${canUpload ? "" : "disabled"}>${canUpload ? uploadLabel : sessionCelebrated ? "Sin acciones" : "Disponible tras la sesión"}</button>`;
+    } else {
+      if (canDownload) {
+        actionHtml = `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar e imprimir</button>`;
+      } else if (generation?.status === "ready" && !localKeyAvailable) {
+        actionHtml = `<button class="button secondary small js-generate-annex" type="button" data-session-id="${group.session.id}">Generar en este dispositivo</button>`;
+      } else if (["pending", "processing"].includes(generation?.status)) {
+        actionHtml = `<button class="button secondary small" type="button" disabled>En proceso de generación</button>`;
+      } else if (generation?.status === "downloaded" || generation?.status === "expired" || generation?.status === "error") {
+        actionHtml = `<button class="button secondary small js-generate-annex" type="button" data-session-id="${group.session.id}">Generar nueva copia</button>`;
+      } else {
+        actionHtml = `<button class="button secondary small" type="button" disabled>No disponible</button>`;
+      }
+    }
+
+    return `<article class="document-item document-mode-item">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
         <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
-        <small>${group.count} persona${group.count === 1 ? "" : "s"} disponible${group.count === 1 ? "" : "s"} para el listado</small>
+        <small>${group.count} persona${group.count === 1 ? "" : "s"} asociada${group.count === 1 ? "" : "s"} a la sesión</small>
       </div>
-      <div class="document-status-column"><strong>Listado para firmas</strong>${generationStatusHtml}</div>
-      <div class="document-status-column"><strong>PDF firmado</strong>${documentStatusHtml}</div>
-      <div class="document-actions-stack">
-        ${generationAction}
-        <button class="button ${document ? "secondary" : "primary"} small js-upload-document" type="button" data-session-id="${group.session.id}" ${canUpload ? "" : "disabled"}>${canUpload ? uploadLabel : sessionCelebrated ? "Sin acciones" : "Disponible tras la sesión"}</button>
-      </div>
+      <div class="document-status-column"><strong>${statusTitle}</strong>${statusHtml}</div>
+      <div class="document-actions-stack">${actionHtml}</div>
     </article>`;
+  }
+
+  function renderDocuments() {
+    const groups = documentGroups();
+    elements.documentsEmpty.hidden = groups.length > 0;
+    elements.documentsList.hidden = groups.length === 0;
+    if (groups.length > 0) elements.documentsList.innerHTML = groups.map(documentSessionItem).join("");
+  }
+
+  function incidentItems() {
+    const items = [];
+    for (const registration of registrations) {
+      const participant = registration.participant ?? {};
+      const message = registration.incident_message || participant.incident_message || (registration.sync_status === "error" ? "Error de sincronización de la inscripción." : "");
+      if (registration.status === "incident" || registration.sync_status === "error" || message) {
+        items.push({
+          type: "Inscripción",
+          title: participant.display_name || "Persona participante",
+          subtitle: `${registration.session?.title || "Sesión"} · ${participant.masked_document || "Documento protegido"}`,
+          message: message || "La inscripción requiere revisión."
+        });
+      }
+    }
+    for (const document of municipalDocuments) {
+      if (document.validation_status !== "incident" && document.sync_status !== "error" && !document.incident_message) continue;
+      const session = findRegistrationSession(document.session_id);
+      items.push({
+        type: "Anexo I firmado",
+        title: session?.title || "Sesión",
+        subtitle: `Versión ${document.version}`,
+        message: document.incident_message || (document.sync_status === "error" ? "Error al incorporar el documento al SAE." : "El documento requiere una nueva versión.")
+      });
+    }
+    for (const generation of annexGenerationRequests) {
+      if (generation.status !== "error" && !generation.incident_message) continue;
+      const session = findRegistrationSession(generation.session_id);
+      items.push({
+        type: "Generación de Anexo I",
+        title: session?.title || "Sesión",
+        subtitle: "Generación del listado para firmas",
+        message: generation.incident_message || "No se pudo generar el Anexo I."
+      });
+    }
+    return items;
+  }
+
+  function renderIncidents() {
+    const items = incidentItems();
+    elements.incidentMenuCount.textContent = String(items.length);
+    elements.incidentsEmpty.hidden = items.length > 0;
+    elements.incidentsList.hidden = items.length === 0;
+    if (items.length > 0) {
+      elements.incidentsList.innerHTML = items.map((item) => `
+        <article class="incident-item">
+          <div><span class="badge incident">${escapeHtml(item.type)}</span><h3>${escapeHtml(item.title)}</h3><small>${escapeHtml(item.subtitle)}</small></div>
+          <p>${escapeHtml(item.message)}</p>
+        </article>`).join("");
+    }
   }
 
   async function loadDocuments() {
@@ -553,22 +694,8 @@
       municipalDocuments = Array.isArray(documentsResult.data) ? documentsResult.data : [];
       annexGenerationRequests = Array.isArray(generationsResult.data) ? generationsResult.data : [];
       elements.documentTabCount.textContent = String(municipalDocuments.filter((item) => item.validation_status !== "superseded").length);
-
-      const grouped = new Map();
-      for (const registration of registrations) {
-        if (!registration.session || ["cancelled", "absent"].includes(registration.status)) continue;
-        const key = registration.session.id;
-        const current = grouped.get(key) ?? { session: registration.session, count: 0 };
-        current.count += 1;
-        grouped.set(key, current);
-      }
-      const groups = [...grouped.values()].sort((a, b) => b.session.session_date.localeCompare(a.session.session_date));
-      if (groups.length === 0) {
-        elements.documentsEmpty.hidden = false;
-        return;
-      }
-      elements.documentsList.innerHTML = groups.map(documentSessionItem).join("");
-      elements.documentsList.hidden = false;
+      renderDocuments();
+      renderIncidents();
     } finally {
       elements.documentsLoading.hidden = true;
       elements.refreshDocumentsButton.disabled = false;
@@ -814,7 +941,7 @@
       closeDocumentUploadDialog();
       await reloadPortalData();
       showNotice("success", "El Anexo I firmado se ha cifrado y enviado al SAE.");
-      setActiveSection("documentsSection");
+      openDocumentSection("upload");
     } catch (error) {
       if (reservation?.storage_bucket && reservation?.storage_path) {
         await client.storage.from(reservation.storage_bucket).remove([reservation.storage_path]).catch(() => {});
@@ -913,6 +1040,7 @@
         .map((item) => ({ ...item.participant, previous_program_id: item.program_id, previous_program_name: item.program_name_snapshot }))
         .filter((participant, index, all) => all.findIndex((other) => other?.id === participant.id) === index);
       elements.registrationTabCount.textContent = String(registrations.length);
+      renderIncidents();
       if (registrations.length === 0) {
         elements.registrationsEmpty.hidden = false;
         return;
@@ -1080,7 +1208,7 @@
       closeInitialDialog();
       await reloadPortalData();
       showNotice("success", "La persona ha quedado inscrita. Los datos completos se han enviado cifrados.");
-      setActiveSection("registrationsSection");
+      setActiveSection("sessionsSection");
     } catch (error) {
       const message = String(error?.message ?? "No se pudo completar la inscripción.");
       const friendly = message.includes("capacidad ordinaria") ? "La sesión acaba de completar sus plazas ordinarias." : message.includes("duplicate key") ? "Esta persona ya tiene una inscripción activa en esa fase." : message;
@@ -1112,7 +1240,7 @@
       closeFinalDialog();
       await reloadPortalData();
       showNotice("success", "La persona ha quedado inscrita en la sesión final.");
-      setActiveSection("registrationsSection");
+      setActiveSection("sessionsSection");
     } catch (error) {
       showNotice("error", error.message || "No se pudo completar la inscripción final.", elements.finalRegistrationNotice);
     } finally {
@@ -1156,6 +1284,7 @@
     clearNotice();
     currentUser = user;
     setPortalVisible(true);
+    setActiveSection("dashboardSection");
     try {
       await loadProfile();
       await loadEncryptionKey();
@@ -1236,7 +1365,24 @@
       try { await loadDocuments(); showNotice("success", "La documentación se ha actualizado."); }
       catch (error) { showNotice("error", `No se pudo actualizar la documentación: ${error.message}`); }
     });
-    document.querySelectorAll(".tab-button").forEach((button) => button.addEventListener("click", () => setActiveSection(button.dataset.view)));
+    document.querySelectorAll(".js-dashboard-action").forEach((button) => button.addEventListener("click", () => {
+      const action = button.dataset.action;
+      if (action === "participants") setActiveSection("sessionsSection");
+      else if (action === "changes") setActiveSection("registrationsSection");
+      else if (action === "incidents") { renderIncidents(); setActiveSection("incidentsSection"); }
+      else if (action === "annex-create") openDocumentSection("create");
+      else if (action === "annex-upload") openDocumentSection("upload");
+      else if (action === "annex-download") openDocumentSection("download");
+    }));
+    document.querySelectorAll(".js-back-dashboard").forEach((button) => button.addEventListener("click", openDashboard));
+    elements.refreshIncidentsButton.addEventListener("click", async () => {
+      clearNotice();
+      elements.refreshIncidentsButton.disabled = true;
+      elements.incidentsLoading.hidden = false;
+      try { await reloadPortalData(); renderIncidents(); showNotice("success", "Las incidencias se han actualizado."); }
+      catch (error) { showNotice("error", `No se pudieron actualizar las incidencias: ${error.message}`); }
+      finally { elements.refreshIncidentsButton.disabled = false; elements.incidentsLoading.hidden = true; }
+    });
     elements.sessionsGrid.addEventListener("click", (event) => {
       const initialButton = event.target.closest(".js-register-initial");
       const finalButton = event.target.closest(".js-register-final");
