@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+
   const config = window.INCENTIVOS_CONFIG ?? {};
   const url = String(config.SUPABASE_URL ?? "").trim();
   const publishableKey = String(config.SUPABASE_PUBLISHABLE_KEY ?? "").trim();
@@ -610,7 +611,7 @@
     elements.annexGenerationForm.reset();
     elements.annexGenerationSessionId.value = session.id;
     elements.annexGenerationSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
-    elements.annexModality.value = "in_person";
+    elements.annexModality.value = "online";
     elements.annexRepresentativeName.value = currentProfile?.full_name || "";
     elements.annexRepresentativePosition.value = "";
     elements.annexParticipantsList.innerHTML = available.map((registration) => `
@@ -671,7 +672,7 @@
       localStorage.setItem(annexKeyStorageName(response.request_id), key.rawKey);
       closeAnnexGenerationDialog();
       await loadDocuments();
-      showNotice("success", "El SAE está generando el Anexo I. Estará disponible en aproximadamente un minuto.");
+      showNotice("success", "El SAE está generando el Anexo I. Estará disponible en aproximadamente un minuto. Pulsa el botón Actualizar para comprobar si ya está disponible.");
     } catch (error) {
       showNotice("error", error.message || "No se pudo solicitar el Anexo I.", elements.annexGenerationNotice);
     } finally {

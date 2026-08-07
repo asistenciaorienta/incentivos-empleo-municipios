@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260806-programas-v1-1">
+  <link rel="stylesheet" href="./styles.css?v=20260807-anexo-v1-2-1">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -233,7 +233,7 @@
 
 
 
-  <dialog id="annexGenerationDialog" class="modal-dialog" aria-labelledby="annexGenerationTitle">
+  <dialog id="annexGenerationDialog" class="modal-dialog annex-generation-dialog" aria-labelledby="annexGenerationTitle">
     <form id="annexGenerationForm" class="modal-card annex-generation-card" method="dialog" novalidate>
       <div id="annexGenerationNotice" class="notice" role="status" aria-live="polite" hidden></div>
       <div class="modal-heading">
@@ -251,8 +251,8 @@
         <label>
           <span>Modalidad</span>
           <select id="annexModality" required>
+            <option value="online" selected>Telemática</option>
             <option value="in_person">Presencial</option>
-            <option value="online">Telemática</option>
           </select>
         </label>
         <label>
@@ -322,6 +322,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260806-programas-v1-1"></script>
+  <script src="./app.js?v=20260807-anexo-v1-2-1"></script>
 </body>
 </html>

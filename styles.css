@@ -758,8 +758,24 @@ select:focus {
   gap: .55rem;
   min-width: 170px;
 }
+.annex-generation-dialog {
+  width: min(900px, calc(100% - 1.5rem));
+  max-width: calc(100% - 1.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 .annex-generation-card {
-  width: min(880px, calc(100vw - 2rem));
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.annex-generation-card .form-grid,
+.annex-generation-card label,
+.annex-generation-card input,
+.annex-generation-card select,
+.annex-participant-row > span {
+  min-width: 0;
 }
 .annex-selection-heading {
   display: flex;
@@ -779,7 +795,8 @@ select:focus {
 }
 .annex-participants-list {
   max-height: 330px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid #d9e1dd;
   border-radius: 12px;
   background: #fff;
@@ -797,7 +814,10 @@ select:focus {
 .annex-participant-row:hover { background: #f7faf8; }
 .annex-participant-row input { width: 18px; height: 18px; }
 .annex-participant-row strong,
-.annex-participant-row small { display: block; }
+.annex-participant-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
 .annex-participant-row small { margin-top: .15rem; color: var(--muted, #66736d); }
 @media (max-width: 920px) {
   .annex-document-item { grid-template-columns: 1fr; }
