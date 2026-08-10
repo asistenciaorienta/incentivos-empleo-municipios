@@ -539,13 +539,21 @@
     const statusText = transferred ? "Trasladada" : statusLabel(registration.status);
     const statusClass = transferred ? "transferred" : registration.status;
     const transferredTo = registration.transferred_to_session;
+    const registrationIncident =
+      registration.incident_message
+      || (
+        ["error"].includes(registration.sync_status)
+        || ["incident"].includes(registration.status)
+          ? participant.incident_message
+          : ""
+      );
 
     return `
       <article class="registration-item" data-registration-id="${registration.id}">
         <div class="registration-person">
           <strong>${escapeHtml(participant.display_name || "Persona")}</strong>
           <small>${escapeHtml(participant.masked_document || "Documento protegido")}</small>
-          ${participant.incident_message ? `<small class="danger-text">${escapeHtml(participant.incident_message)}</small>` : ""}
+          ${registrationIncident ? `<small class="danger-text">${escapeHtml(registrationIncident)}</small>` : ""}
         </div>
         <div class="registration-session">
           <strong>${escapeHtml(session.title || "Sesión")}</strong>
@@ -658,18 +666,22 @@
 
     for (const registration of registrations) {
       const participant = registration.participant ?? {};
+      const registrationHasIncident =
+        registration.status === "incident"
+        || registration.sync_status === "error";
+
       const message =
         registration.incident_message
-        || participant.incident_message
+        || (
+          registrationHasIncident
+            ? participant.incident_message
+            : ""
+        )
         || (registration.sync_status === "error"
           ? "Error de sincronización de la inscripción."
           : "");
 
-      if (
-        registration.status === "incident"
-        || registration.sync_status === "error"
-        || message
-      ) {
+      if (registrationHasIncident || registration.incident_message) {
         items.push({
           group: "registration",
           type: "Inscripción",
