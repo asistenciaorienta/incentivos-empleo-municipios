@@ -29,6 +29,9 @@
     finalCount: document.querySelector("#finalCount"),
     registrationTabCount: document.querySelector("#registrationTabCount"),
     incidentMenuCount: document.querySelector("#incidentMenuCount"),
+    incidentTotalCount: document.querySelector("#incidentTotalCount"),
+    incidentRegistrationCount: document.querySelector("#incidentRegistrationCount"),
+    incidentAnnexCount: document.querySelector("#incidentAnnexCount"),
     refreshIncidentsButton: document.querySelector("#refreshIncidentsButton"),
     incidentsLoading: document.querySelector("#incidentsLoading"),
     incidentsEmpty: document.querySelector("#incidentsEmpty"),
@@ -130,6 +133,7 @@
   let municipalDocuments = [];
   let annexGenerationRequests = [];
   let documentViewMode = "create";
+  let incidentFilter = "all";
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -537,7 +541,7 @@
     const transferredTo = registration.transferred_to_session;
 
     return `
-      <article class="registration-item">
+      <article class="registration-item" data-registration-id="${registration.id}">
         <div class="registration-person">
           <strong>${escapeHtml(participant.display_name || "Persona")}</strong>
           <small>${escapeHtml(participant.masked_document || "Documento protegido")}</small>
@@ -631,7 +635,7 @@
       }
     }
 
-    return `<article class="document-item document-mode-item">
+    return `<article class="document-item document-mode-item" data-session-id="${group.session.id}">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
         <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
@@ -651,54 +655,208 @@
 
   function incidentItems() {
     const items = [];
+
     for (const registration of registrations) {
       const participant = registration.participant ?? {};
-      const message = registration.incident_message || participant.incident_message || (registration.sync_status === "error" ? "Error de sincronización de la inscripción." : "");
-      if (registration.status === "incident" || registration.sync_status === "error" || message) {
+      const message =
+        registration.incident_message
+        || participant.incident_message
+        || (registration.sync_status === "error"
+          ? "Error de sincronización de la inscripción."
+          : "");
+
+      if (
+        registration.status === "incident"
+        || registration.sync_status === "error"
+        || message
+      ) {
         items.push({
+          group: "registration",
           type: "Inscripción",
           title: participant.display_name || "Persona participante",
-          subtitle: `${registration.session?.title || "Sesión"} · ${participant.masked_document || "Documento protegido"}`,
-          message: message || "La inscripción requiere revisión."
+          subtitle:
+            `${registration.session?.title || "Sesión"} · `
+            + `${participant.masked_document || "Documento protegido"}`,
+          message: message || "La inscripción requiere revisión.",
+          actionLabel: "Ver inscripción",
+          action: "registration",
+          registrationId: registration.id,
+          sessionId: registration.session?.id || "",
         });
       }
     }
+
     for (const document of municipalDocuments) {
-      if (document.validation_status !== "incident" && document.sync_status !== "error" && !document.incident_message) continue;
+      if (
+        document.validation_status !== "incident"
+        && document.sync_status !== "error"
+        && !document.incident_message
+      ) continue;
+
       const session = findRegistrationSession(document.session_id);
       items.push({
+        group: "annex",
         type: "Anexo I firmado",
         title: session?.title || "Sesión",
         subtitle: `Versión ${document.version}`,
-        message: document.incident_message || (document.sync_status === "error" ? "Error al incorporar el documento al SAE." : "El documento requiere una nueva versión.")
+        message:
+          document.incident_message
+          || (document.sync_status === "error"
+            ? "Error al incorporar el documento al SAE."
+            : "El SAE ha indicado que debe enviarse una nueva versión."),
+        actionLabel: "Ir a subida de Anexos I",
+        action: "annex-upload",
+        sessionId: document.session_id,
       });
     }
+
     for (const generation of annexGenerationRequests) {
       if (generation.status !== "error" && !generation.incident_message) continue;
+
       const session = findRegistrationSession(generation.session_id);
       items.push({
+        group: "annex",
         type: "Generación de Anexo I",
         title: session?.title || "Sesión",
-        subtitle: "Generación del listado para firmas",
-        message: generation.incident_message || "No se pudo generar el Anexo I."
+        subtitle: "Listado para firmas",
+        message:
+          generation.incident_message
+          || "No se pudo generar el Anexo I.",
+        actionLabel: "Volver a generación",
+        action: "annex-create",
+        sessionId: generation.session_id,
       });
     }
+
     return items;
   }
 
+  function updateIncidentFilterButtons() {
+    document.querySelectorAll("[data-incident-filter]").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.incidentFilter === incidentFilter,
+      );
+    });
+  }
+
   function renderIncidents() {
-    const items = incidentItems();
-    elements.incidentMenuCount.textContent = String(items.length);
+    const allItems = incidentItems();
+    const registrationCount =
+      allItems.filter((item) => item.group === "registration").length;
+    const annexCount =
+      allItems.filter((item) => item.group === "annex").length;
+
+    elements.incidentMenuCount.textContent = String(allItems.length);
+    elements.incidentTotalCount.textContent = String(allItems.length);
+    elements.incidentRegistrationCount.textContent =
+      String(registrationCount);
+    elements.incidentAnnexCount.textContent = String(annexCount);
+
+    const items = incidentFilter === "all"
+      ? allItems
+      : allItems.filter((item) => item.group === incidentFilter);
+
+    updateIncidentFilterButtons();
+
     elements.incidentsEmpty.hidden = items.length > 0;
     elements.incidentsList.hidden = items.length === 0;
-    if (items.length > 0) {
-      elements.incidentsList.innerHTML = items.map((item) => `
-        <article class="incident-item">
-          <div><span class="badge incident">${escapeHtml(item.type)}</span><h3>${escapeHtml(item.title)}</h3><small>${escapeHtml(item.subtitle)}</small></div>
+
+    if (items.length === 0) {
+      elements.incidentsEmpty.textContent =
+        allItems.length === 0
+          ? "No hay incidencias pendientes."
+          : "No hay incidencias en este filtro.";
+      elements.incidentsList.innerHTML = "";
+      return;
+    }
+
+    elements.incidentsList.innerHTML = items.map((item) => `
+      <article class="incident-item">
+        <div class="incident-identity">
+          <span class="badge incident">${escapeHtml(item.type)}</span>
+          <h3>${escapeHtml(item.title)}</h3>
+          <small>${escapeHtml(item.subtitle)}</small>
+        </div>
+        <div class="incident-message">
+          <strong>Qué ocurre</strong>
           <p>${escapeHtml(item.message)}</p>
-        </article>`).join("");
+        </div>
+        <div class="incident-actions">
+          <button
+            class="button primary small js-resolve-incident"
+            type="button"
+            data-incident-action="${escapeHtml(item.action)}"
+            data-registration-id="${escapeHtml(item.registrationId || "")}"
+            data-session-id="${escapeHtml(item.sessionId || "")}"
+          >${escapeHtml(item.actionLabel)}</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function highlightPortalItem(selector) {
+    window.setTimeout(() => {
+      const target = document.querySelector(selector);
+      if (!target) return;
+      target.classList.add("attention-highlight");
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(
+        () => target.classList.remove("attention-highlight"),
+        2600,
+      );
+    }, 80);
+  }
+
+  function resolveIncidentNavigation(button) {
+    const action = button.dataset.incidentAction;
+    const registrationId = button.dataset.registrationId;
+    const sessionId = button.dataset.sessionId;
+
+    clearNotice();
+
+    if (action === "registration") {
+      setActiveSection("registrationsSection");
+      if (registrationId) {
+        highlightPortalItem(
+          `.registration-item[data-registration-id="${CSS.escape(registrationId)}"]`,
+        );
+      }
+      showNotice(
+        "warning",
+        "Revisa la inscripción señalada. Si la incidencia no permite una acción municipal, el SAE deberá resolverla.",
+      );
+      return;
+    }
+
+    if (action === "annex-upload") {
+      openDocumentSection("upload");
+      if (sessionId) {
+        highlightPortalItem(
+          `.document-item[data-session-id="${CSS.escape(sessionId)}"]`,
+        );
+      }
+      showNotice(
+        "warning",
+        "Revisa el motivo indicado y, cuando proceda, incorpora una nueva versión del Anexo I firmado.",
+      );
+      return;
+    }
+
+    if (action === "annex-create") {
+      openDocumentSection("create");
+      if (sessionId) {
+        highlightPortalItem(
+          `.document-item[data-session-id="${CSS.escape(sessionId)}"]`,
+        );
+      }
+      showNotice(
+        "warning",
+        "La generación anterior tuvo una incidencia. Puedes solicitar una nueva copia del Anexo I.",
+      );
     }
   }
+
 
   async function loadDocuments() {
     elements.documentsLoading.hidden = false;
@@ -1530,6 +1688,16 @@
       else if (action === "annex-download") openDocumentSection("download");
     }));
     document.querySelectorAll(".js-back-dashboard").forEach((button) => button.addEventListener("click", openDashboard));
+    document.querySelectorAll("[data-incident-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        incidentFilter = button.dataset.incidentFilter || "all";
+        renderIncidents();
+      });
+    });
+    elements.incidentsList.addEventListener("click", (event) => {
+      const button = event.target.closest(".js-resolve-incident");
+      if (button) resolveIncidentNavigation(button);
+    });
     elements.refreshIncidentsButton.addEventListener("click", async () => {
       clearNotice();
       elements.refreshIncidentsButton.disabled = true;

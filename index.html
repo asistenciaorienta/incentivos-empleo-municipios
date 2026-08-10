@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260807-cambio-sesion-v1-3">
+  <link rel="stylesheet" href="./styles.css?v=20260810-incidencias-v1-4">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -190,15 +190,41 @@
           <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
           <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Incidencias</h2></div>
         </div>
+
+        <section class="summary-grid incident-summary" aria-label="Resumen de incidencias">
+          <article class="summary-card">
+            <span>Pendientes</span>
+            <strong id="incidentTotalCount">0</strong>
+            <small>requieren atención</small>
+          </article>
+          <article class="summary-card">
+            <span>Inscripciones</span>
+            <strong id="incidentRegistrationCount">0</strong>
+            <small>personas o sincronización</small>
+          </article>
+          <article class="summary-card">
+            <span>Anexos I</span>
+            <strong id="incidentAnnexCount">0</strong>
+            <small>generación o documento firmado</small>
+          </article>
+        </section>
+
         <section class="card sessions-card" aria-labelledby="incidentsTitle">
           <div class="card-heading sessions-heading">
             <div>
               <p class="section-kicker">Elementos que requieren atención</p>
               <h2 id="incidentsTitle">Incidencias pendientes</h2>
-              <p>Se muestran las incidencias comunicadas por el SAE o los errores de sincronización detectados.</p>
+              <p>Desde cada incidencia puedes ir directamente a la pantalla donde se resuelve.</p>
             </div>
             <button id="refreshIncidentsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
+
+          <div class="incident-toolbar" role="group" aria-label="Filtrar incidencias">
+            <button class="incident-filter active" type="button" data-incident-filter="all">Todas</button>
+            <button class="incident-filter" type="button" data-incident-filter="registration">Inscripciones</button>
+            <button class="incident-filter" type="button" data-incident-filter="annex">Anexos I</button>
+          </div>
+
           <div id="incidentsLoading" class="empty-state" hidden>Actualizando incidencias…</div>
           <div id="incidentsEmpty" class="empty-state">No hay incidencias pendientes.</div>
           <div id="incidentsList" class="incident-list" hidden></div>
@@ -461,6 +487,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260807-cambio-sesion-v1-3-1"></script>
+  <script src="./app.js?v=20260810-incidencias-v1-4"></script>
 </body>
 </html>

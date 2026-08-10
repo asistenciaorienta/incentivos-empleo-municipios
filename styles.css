@@ -1094,3 +1094,76 @@ select:focus {
     min-width: 0;
   }
 }
+
+
+/* v1.4 · Incidencias accionables */
+.incident-summary {
+  margin-bottom: 1rem;
+}
+
+.incident-toolbar {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+
+.incident-filter {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .48rem .8rem;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.incident-filter:hover,
+.incident-filter.active {
+  border-color: var(--sae-green);
+  background: var(--sae-green-soft);
+  color: var(--sae-green-dark);
+}
+
+.incident-item {
+  grid-template-columns:
+    minmax(210px, .85fr)
+    minmax(260px, 1.25fr)
+    minmax(180px, auto);
+}
+
+.incident-message strong {
+  display: block;
+  margin-bottom: .25rem;
+  font-size: .8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+
+.incident-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.attention-highlight {
+  outline: 3px solid rgba(0, 119, 92, .28);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(0, 119, 92, .08);
+}
+
+@media (max-width: 820px) {
+  .incident-item {
+    grid-template-columns: 1fr;
+  }
+
+  .incident-actions {
+    justify-content: stretch;
+  }
+
+  .incident-actions .button {
+    width: 100%;
+  }
+}
