@@ -1058,8 +1058,9 @@
           id, phase, status, sync_status, incident_message, created_at, program_id, program_name_snapshot,
           transferred_from_registration_id, transferred_to_session_id, transferred_at,
           participant:participants (id, display_name, masked_document, progress_status, sync_status, incident_message),
-          session:sessions (id, title, session_type, session_date, start_time, end_time, trainer, status),
-          transferred_to_session:sessions!session_registrations_transferred_to_session_id_fkey
+          session:sessions!session_id
+            (id, title, session_type, session_date, start_time, end_time, trainer, status),
+          transferred_to_session:sessions!transferred_to_session_id
             (id, title, session_type, session_date, start_time, end_time, status)
         `)
         .order("created_at", { ascending: false });
