@@ -1476,10 +1476,31 @@
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       registrations = Array.isArray(data) ? data : [];
+      const activeFinalParticipantIds = new Set(
+        registrations
+          .filter((item) =>
+            item.phase === "final"
+            && ["pending", "confirmed", "incident", "attended"].includes(item.status)
+          )
+          .map((item) => item.participant?.id)
+          .filter(Boolean)
+      );
+
       eligibleParticipants = registrations
-        .filter((item) => item.phase === "initial" && item.participant?.progress_status === "initial_completed")
-        .map((item) => ({ ...item.participant, previous_program_id: item.program_id, previous_program_name: item.program_name_snapshot }))
-        .filter((participant, index, all) => all.findIndex((other) => other?.id === participant.id) === index);
+        .filter((item) =>
+          item.phase === "initial"
+          && item.status === "attended"
+          && item.participant?.id
+          && !activeFinalParticipantIds.has(item.participant.id)
+        )
+        .map((item) => ({
+          ...item.participant,
+          previous_program_id: item.program_id,
+          previous_program_name: item.program_name_snapshot
+        }))
+        .filter((participant, index, all) =>
+          all.findIndex((other) => other?.id === participant.id) === index
+        );
       elements.registrationTabCount.textContent = String(registrations.length);
       renderIncidents();
       if (registrations.length === 0) {
@@ -1683,7 +1704,12 @@
       showNotice("success", "La persona ha quedado inscrita en la sesión final.");
       setActiveSection("sessionsSection");
     } catch (error) {
-      showNotice("error", error.message || "No se pudo completar la inscripción final.", elements.finalRegistrationNotice);
+      const message = String(error?.message || "No se pudo completar la inscripción final.");
+      const friendly = message.includes("session_registrations_one_active_phase")
+        || message.includes("duplicate key")
+        ? "Esta persona ya tiene una inscripción activa en una sesión final. Pulsa Actualizar para refrescar la lista."
+        : message;
+      showNotice("error", friendly, elements.finalRegistrationNotice);
     } finally {
       elements.submitFinalRegistration.disabled = false;
     }
