@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260810-incidencias-v1-4">
+  <link rel="stylesheet" href="./styles.css?v=20260810-anexos-v1-5">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -114,24 +114,24 @@
               <div>
                 <p class="section-kicker">Anexo I</p>
                 <h3 id="annexManagementTitle">Gestión de Anexos I</h3>
-                <p>Preparación, entrega y recuperación de los documentos de asistencia.</p>
+                <p>Creación para firmas, entrega del PDF firmado y descarga de las versiones validadas.</p>
               </div>
             </div>
             <div class="management-actions">
               <button class="management-action js-dashboard-action" type="button" data-action="annex-create">
                 <span class="management-action-number" aria-hidden="true">1</span>
-                <span><strong>Creación de Anexos I</strong><small>Generar el listado oficial para imprimir y recoger las firmas.</small></span>
+                <span><strong>Creación de Anexos I</strong><small>Disponible al finalizar la sesión. Incluye automáticamente a todas las personas que constan como asistentes.</small></span>
                 <span class="management-action-arrow" aria-hidden="true">›</span>
               </button>
               <button class="management-action js-dashboard-action" type="button" data-action="annex-upload">
                 <span class="management-action-number" aria-hidden="true">2</span>
-                <span><strong>Subida de Anexos I</strong><small>Enviar de forma cifrada el PDF escaneado con las firmas.</small></span>
+                <span><strong>Subida de Anexos I</strong><small>Enviar el PDF con firmas manuscritas de asistentes y firma digital de la persona responsable municipal.</small></span>
                 <span class="menu-count" id="documentTabCount">0</span>
                 <span class="management-action-arrow" aria-hidden="true">›</span>
               </button>
               <button class="management-action js-dashboard-action" type="button" data-action="annex-download">
                 <span class="management-action-number" aria-hidden="true">3</span>
-                <span><strong>Descarga de Anexos I</strong><small>Descargar los Anexos I generados y disponibles en este dispositivo.</small></span>
+                <span><strong>Descarga de Anexos I</strong><small>Tras la validación provincial, descargar la versión municipal firmada y la versión final validada por la Dirección Provincial.</small></span>
                 <span class="management-action-arrow" aria-hidden="true">›</span>
               </button>
             </div>
@@ -241,7 +241,7 @@
             <div>
               <p id="documentsKicker" class="section-kicker">Preparación para firmas</p>
               <h2 id="documentsTitle">Crear Anexo I</h2>
-              <p id="documentsDescription">Genera el listado oficial de personas para imprimirlo y recoger las firmas.</p>
+              <p id="documentsDescription">Después de finalizar la sesión, genera el listado con todas las personas cuya asistencia esté confirmada.</p>
             </div>
             <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
@@ -425,7 +425,7 @@
           <input value="Granada" disabled>
         </label>
         <label>
-          <span>Nombre y apellidos de la corporación local</span>
+          <span>Nombre y apellidos de la persona responsable municipal</span>
           <input id="annexRepresentativeName" maxlength="180" required>
         </label>
         <label>
@@ -436,18 +436,16 @@
 
       <div class="annex-selection-heading">
         <div>
-          <strong>Personas que aparecerán en el listado</strong>
-          <small id="annexParticipantCount">0 personas seleccionadas</small>
+          <strong>Personas asistentes que aparecerán en el listado</strong>
+          <small id="annexParticipantCount">0 personas asistentes incluidas automáticamente</small>
         </div>
-        <label class="checkbox-label compact-checkbox">
-          <input id="annexSelectAll" type="checkbox">
-          <span>Seleccionar todas</span>
-        </label>
       </div>
       <div id="annexParticipantsList" class="annex-participants-list"></div>
 
       <div class="privacy-box">
-        <p><strong>Tratamiento seguro:</strong> el SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
+        <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen las personas asistentes.</p>
+        <p><strong>Después:</strong> digitaliza el documento firmado y obtén la firma digital de la persona responsable del ayuntamiento. Ese PDF será el que se incorpore desde «Subida de Anexos I».</p>
+        <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
       </div>
 
       <div class="modal-actions">
@@ -463,19 +461,20 @@
       <div class="modal-heading">
         <div>
           <p class="section-kicker">Entrega segura</p>
-          <h2 id="documentUploadTitle">Incorporar Anexo I firmado</h2>
+          <h2 id="documentUploadTitle">Subir Anexo I firmado</h2>
           <p id="documentSessionSummary" class="muted">—</p>
         </div>
         <button id="closeDocumentUploadDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
       </div>
       <input id="documentSessionId" type="hidden">
       <label>
-        <span>PDF firmado</span>
+        <span>PDF firmado por asistentes + responsable municipal</span>
         <input id="signedAnnexFile" type="file" accept="application/pdf,.pdf" required>
       </label>
       <div class="privacy-box">
-        <p><strong>Protección del documento</strong></p>
-        <p>El archivo se cifra mediante AES-256-GCM. La clave AES se protege con la clave pública RSA del SAE. Supabase solo recibe un binario cifrado.</p>
+        <p><strong>Antes de subirlo</strong></p>
+        <p>El PDF debe contener las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento que da validez a la asistencia.</p>
+        <p><strong>Protección:</strong> el archivo se cifra mediante AES-256-GCM. La clave AES se protege con la clave pública RSA del SAE. Supabase solo recibe un binario cifrado.</p>
         <p class="muted">Tamaño máximo: 12 MB. No incluyas datos personales en el nombre del archivo.</p>
       </div>
       <div class="modal-actions">
@@ -487,6 +486,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260810-sync-transfer-v1-4-1"></script>
+  <script src="./app.js?v=20260810-anexos-v1-5"></script>
 </body>
 </html>

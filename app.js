@@ -10,6 +10,8 @@
   const MAX_SIGNED_ANNEX_BYTES = 12 * 1024 * 1024;
   const GENERATED_ANNEX_SCHEMA = "incentivos-empleo.generated-annex.v1";
   const ANNEX_KEY_STORAGE_PREFIX = "incentivos-generated-annex-key";
+  const ANNEX_DOCUMENT_DOWNLOAD_SCHEMA = "incentivos-empleo.annex-document-download.v1";
+  const ANNEX_DOCUMENT_DOWNLOAD_KEY_PREFIX = "incentivos-annex-document-download-key";
 
   const elements = {
     notice: document.querySelector("#appNotice"),
@@ -114,7 +116,6 @@
     annexRepresentativePosition: document.querySelector("#annexRepresentativePosition"),
     annexParticipantCount: document.querySelector("#annexParticipantCount"),
     annexParticipantsList: document.querySelector("#annexParticipantsList"),
-    annexSelectAll: document.querySelector("#annexSelectAll"),
     closeAnnexGenerationDialog: document.querySelector("#closeAnnexGenerationDialog"),
     cancelAnnexGeneration: document.querySelector("#cancelAnnexGeneration"),
     submitAnnexGeneration: document.querySelector("#submitAnnexGeneration")
@@ -132,6 +133,7 @@
   let registrationToChange = null;
   let municipalDocuments = [];
   let annexGenerationRequests = [];
+  let annexDocumentDownloadRequests = [];
   let documentViewMode = "create";
   let incidentFilter = "all";
 
@@ -183,21 +185,21 @@
         heading: "Creación de Anexos I",
         kicker: "Preparación para firmas",
         title: "Crear Anexo I",
-        description: "Genera el listado oficial de personas para imprimirlo y recoger las firmas.",
+        description: "Después de finalizar la sesión y cerrar la asistencia, genera el Anexo I con todas las personas que hayan asistido y descárgalo para recoger sus firmas manuscritas.",
         empty: "No hay sesiones con inscripciones disponibles para generar el Anexo I."
       },
       upload: {
         heading: "Subida de Anexos I",
         kicker: "Entrega segura",
         title: "Subir Anexo I firmado",
-        description: "Incorpora el PDF escaneado con las firmas. El archivo se cifra antes de salir del navegador.",
+        description: "Incorpora el PDF con las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento.",
         empty: "No hay sesiones disponibles para incorporar documentación firmada."
       },
       download: {
         heading: "Descarga de Anexos I",
         kicker: "Documentos generados",
         title: "Descargar Anexo I",
-        description: "Recupera los Anexos I que ya han sido generados por el SAE para este dispositivo.",
+        description: "Tras la validación provincial, descarga el PDF firmado por el ayuntamiento y el PDF final validado por la Dirección Provincial. No se ofrece opción de impresión desde el portal.",
         empty: "No hay sesiones con Anexos I disponibles para descargar."
       }
     }[documentViewMode];
@@ -299,6 +301,23 @@
 
   function annexKeyStorageName(requestId) {
     return `${ANNEX_KEY_STORAGE_PREFIX}:${currentUser?.id || "user"}:${requestId}`;
+  }
+
+
+  function annexDocumentDownloadKeyStorageName(requestId) {
+    return `${ANNEX_DOCUMENT_DOWNLOAD_KEY_PREFIX}:${currentUser?.id || "user"}:${requestId}`;
+  }
+
+  function annexDocumentDownloadAdditionalData(request) {
+    return JSON.stringify({
+      schema: ANNEX_DOCUMENT_DOWNLOAD_SCHEMA,
+      version: 1,
+      request_id: String(request.id),
+      municipality_id: String(request.municipality_id),
+      session_id: String(request.session_id),
+      document_id: String(request.municipal_document_id),
+      variant: String(request.variant),
+    });
   }
 
   function generatedAnnexAdditionalData(request) {
@@ -586,70 +605,181 @@
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
   }
 
+  function hasDownloadedGeneration(sessionId) {
+    return annexGenerationRequests.some(
+      (item) => item.session_id === sessionId && item.status === "downloaded",
+    );
+  }
+
+  function latestAnnexDocumentDownload(documentId, variant) {
+    return annexDocumentDownloadRequests
+      .filter((item) => item.municipal_document_id === documentId && item.variant === variant)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
+  }
+
+  function madridNowParts() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date());
+    return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  }
+
+  function sessionHasFinished(session) {
+    if (!session?.session_date || !session?.end_time) return false;
+    const now = madridNowParts();
+    const today = `${now.year}-${now.month}-${now.day}`;
+    if (session.session_date < today) return true;
+    if (session.session_date > today) return false;
+    const currentTime = `${now.hour}:${now.minute}:${now.second}`;
+    return String(session.end_time).slice(0, 8).padEnd(8, "0") <= currentTime;
+  }
+
   function documentGroups() {
     const grouped = new Map();
     for (const registration of registrations) {
-      if (!registration.session || ["cancelled", "absent"].includes(registration.status)) continue;
+      if (!registration.session || registration.status === "cancelled") continue;
       const key = registration.session.id;
-      const current = grouped.get(key) ?? { session: registration.session, count: 0 };
-      current.count += 1;
+      const current = grouped.get(key) ?? {
+        session: registration.session,
+        total: 0,
+        attended: 0,
+        absent: 0,
+        pendingAttendance: 0,
+      };
+      current.total += 1;
+      if (registration.status === "attended") current.attended += 1;
+      else if (registration.status === "absent") current.absent += 1;
+      else current.pendingAttendance += 1;
       grouped.set(key, current);
     }
-    return [...grouped.values()].sort((a, b) => b.session.session_date.localeCompare(a.session.session_date));
+    return [...grouped.values()].sort((a, b) =>
+      b.session.session_date.localeCompare(a.session.session_date)
+    );
+  }
+
+  function annexDocumentDownloadAction(document, variant) {
+    const label = variant === "municipal_signed"
+      ? "Firmado por asistentes + responsable"
+      : "Validado por Dirección Provincial";
+    const available = variant === "municipal_signed"
+      ? Boolean(document.internal_document_id)
+      : Boolean(document.validated_internal_document_id);
+
+    if (!available) {
+      return `<div class="download-variant"><strong>${escapeHtml(label)}</strong><button class="button secondary small" type="button" disabled>No disponible</button></div>`;
+    }
+
+    const request = latestAnnexDocumentDownload(document.id, variant);
+    const localKey = request
+      ? localStorage.getItem(annexDocumentDownloadKeyStorageName(request.id))
+      : null;
+
+    let action = "";
+    if (request?.status === "pending" || request?.status === "processing") {
+      action = `<button class="button secondary small" type="button" disabled>Preparando…</button>`;
+    } else if (request?.status === "ready" && localKey && request.storage_path) {
+      action = `<button class="button primary small js-download-annex-document" type="button" data-request-id="${request.id}">Descargar PDF</button>`;
+    } else {
+      action = `<button class="button secondary small js-prepare-annex-document-download" type="button" data-document-id="${document.id}" data-session-id="${document.session_id}" data-variant="${variant}">Preparar descarga</button>`;
+    }
+
+    const incident = request?.status === "error" && request.incident_message
+      ? `<small class="danger-text">${escapeHtml(request.incident_message)}</small>`
+      : "";
+
+    return `<div class="download-variant"><strong>${escapeHtml(label)}</strong>${action}${incident}</div>`;
   }
 
   function documentSessionItem(group) {
     const document = latestDocumentForSession(group.session.id);
     const generation = latestGenerationForSession(group.session.id);
-    const today = new Date().toISOString().slice(0, 10);
-    const sessionCelebrated = group.session.session_date <= today;
-    const canUpload = sessionCelebrated && (!document || document.validation_status === "incident" || document.sync_status === "error");
-    const uploadLabel = document ? "Enviar nueva versión" : "Incorporar PDF firmado";
-    const documentStatusHtml = document
-      ? `<div class="status-row"><span class="badge ${document.sync_status}">${escapeHtml(documentSyncLabel(document.sync_status))}</span><span class="badge ${document.validation_status === "validated" ? "synced" : document.validation_status === "incident" ? "incident" : "pending"}">${escapeHtml(documentValidationLabel(document.validation_status))}</span></div><small>Versión ${document.version}${document.processed_at ? ` · recibida por el SAE` : ""}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`
-      : `<span class="badge pending">Sin PDF firmado</span><small>${sessionCelebrated ? "Pendiente de escanear y entregar." : "Se incorporará después de la sesión."}</small>`;
+    const finished = sessionHasFinished(group.session);
+    const attendanceClosed = group.pendingAttendance === 0;
+    const canCreate = finished && attendanceClosed && group.attended > 0;
+    const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
 
-    const localKeyAvailable = generation ? Boolean(localStorage.getItem(annexKeyStorageName(generation.id))) : false;
     const generationStatusHtml = generation
       ? `<div class="status-row"><span class="badge ${generation.status === "ready" ? "synced" : generation.status === "error" ? "incident" : "pending"}">${escapeHtml(annexGenerationStatusLabel(generation.status))}</span></div><small>${generation.page_count ? `${generation.page_count} página${generation.page_count === 1 ? "" : "s"} · ` : ""}${generation.generated_at ? "generado por el SAE" : "solicitud en curso"}</small>${generation.incident_message ? `<small class="danger-text">${escapeHtml(generation.incident_message)}</small>` : ""}`
-      : `<span class="badge pending">No generado</span><small>Prepara el listado oficial para recoger las firmas.</small>`;
+      : `<span class="badge pending">No generado</span>`;
 
-    const canDownload = generation?.status === "ready" && localKeyAvailable && generation.storage_path;
-    let statusTitle = "Listado para firmas";
-    let statusHtml = generationStatusHtml;
+    const localGenerationKey = generation
+      ? Boolean(localStorage.getItem(annexKeyStorageName(generation.id)))
+      : false;
+
+    let contentHtml = "";
     let actionHtml = "";
 
     if (documentViewMode === "create") {
+      let availability = "";
+      if (!finished) {
+        availability = group.session.end_time
+          ? `Disponible después de las ${formatTime(group.session.end_time)} del ${formatDate(group.session.session_date)}.`
+          : "La sesión no tiene hora de finalización definida.";
+      } else if (!attendanceClosed) {
+        availability = `Falta registrar asistencia o ausencia de ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"}.`;
+      } else if (group.attended < 1) {
+        availability = "No consta ninguna persona asistente.";
+      } else {
+        availability = `${group.attended} persona${group.attended === 1 ? "" : "s"} asistente${group.attended === 1 ? "" : "s"} se incluirán automáticamente.`;
+      }
+
+      contentHtml = `<div class="document-status-column"><strong>Asistencia</strong><span>${escapeHtml(availability)}</span></div><div class="document-status-column"><strong>Listado para firmas</strong>${generationStatusHtml}</div>`;
+
       if (generation?.status === "pending" || generation?.status === "processing") {
         actionHtml = `<button class="button secondary small" type="button" disabled>Generando…</button>`;
+      } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
+        actionHtml = `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
+      } else if (canCreate) {
+        actionHtml = `<button class="button primary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generation?.status === "ready" && !localGenerationKey ? "Generar nueva copia en este dispositivo" : "Generar Anexo I"}</button>`;
       } else {
-        actionHtml = `<button class="button primary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generation ? "Generar nueva copia" : "Generar Anexo I"}</button>`;
+        actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
       }
     } else if (documentViewMode === "upload") {
-      statusTitle = "PDF firmado";
-      statusHtml = documentStatusHtml;
-      actionHtml = `<button class="button ${document ? "secondary" : "primary"} small js-upload-document" type="button" data-session-id="${group.session.id}" ${canUpload ? "" : "disabled"}>${canUpload ? uploadLabel : sessionCelebrated ? "Sin acciones" : "Disponible tras la sesión"}</button>`;
-    } else {
-      if (canDownload) {
-        actionHtml = `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar e imprimir</button>`;
-      } else if (generation?.status === "ready" && !localKeyAvailable) {
-        actionHtml = `<button class="button secondary small js-generate-annex" type="button" data-session-id="${group.session.id}">Generar en este dispositivo</button>`;
-      } else if (["pending", "processing"].includes(generation?.status)) {
-        actionHtml = `<button class="button secondary small" type="button" disabled>En proceso de generación</button>`;
-      } else if (generation?.status === "downloaded" || generation?.status === "expired" || generation?.status === "error") {
-        actionHtml = `<button class="button secondary small js-generate-annex" type="button" data-session-id="${group.session.id}">Generar nueva copia</button>`;
+      const canUpload = finished
+        && attendanceClosed
+        && group.attended > 0
+        && downloadedForSignatures
+        && (!document || document.validation_status === "incident" || document.sync_status === "error");
+      const uploadStatus = document
+        ? `<div class="status-row"><span class="badge ${document.sync_status}">${escapeHtml(documentSyncLabel(document.sync_status))}</span><span class="badge ${document.validation_status === "validated" ? "synced" : document.validation_status === "incident" ? "incident" : "pending"}">${escapeHtml(documentValidationLabel(document.validation_status))}</span></div><small>Versión ${document.version}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`
+        : `<span class="badge pending">Pendiente de subida</span>`;
+
+      contentHtml = `<div class="document-status-column"><strong>PDF firmado por asistentes + responsable</strong>${uploadStatus}</div><div class="document-status-column"><strong>Requisito</strong><span>${downloadedForSignatures ? "Listado para firmas descargado." : "Primero debes generar y descargar el listado para firmas."}</span></div>`;
+
+      if (canUpload) {
+        actionHtml = `<button class="button primary small js-upload-document" type="button" data-session-id="${group.session.id}">${document ? "Enviar nueva versión" : "Subir Anexo I firmado"}</button>`;
+      } else if (document?.validation_status === "validated") {
+        actionHtml = `<button class="button secondary small" type="button" disabled>Validado</button>`;
+      } else if (document?.validation_status === "pending_validation" && document.sync_status === "synced") {
+        actionHtml = `<button class="button secondary small" type="button" disabled>Pendiente de validación provincial</button>`;
       } else {
-        actionHtml = `<button class="button secondary small" type="button" disabled>No disponible</button>`;
+        actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
       }
+    } else {
+      const validated = document?.validation_status === "validated";
+      contentHtml = validated
+        ? `<div class="document-status-column"><strong>Estado</strong><span class="badge synced">Validado por Dirección Provincial</span><small>Versión ${document.version}</small></div><div class="signed-file-warning"><strong>Documento con firma digital</strong><span>Conserva el archivo PDF electrónico. La impresión no permite verificar las firmas digitales.</span></div>`
+        : `<div class="document-status-column"><strong>Estado</strong><span class="badge pending">Pendiente de validación</span><small>${document ? documentValidationLabel(document.validation_status) : "Todavía no se ha recibido el Anexo I firmado."}</small></div>`;
+
+      actionHtml = validated
+        ? `<div class="download-actions">${annexDocumentDownloadAction(document, "municipal_signed")}${annexDocumentDownloadAction(document, "provincial_validated")}</div>`
+        : `<button class="button secondary small" type="button" disabled>No disponible para descarga</button>`;
     }
 
     return `<article class="document-item document-mode-item" data-session-id="${group.session.id}">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
         <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
-        <small>${group.count} persona${group.count === 1 ? "" : "s"} asociada${group.count === 1 ? "" : "s"} a la sesión</small>
+        <small>${group.attended} asistieron · ${group.absent} no asistieron${group.pendingAttendance ? ` · ${group.pendingAttendance} pendientes de asistencia` : ""}</small>
       </div>
-      <div class="document-status-column"><strong>${statusTitle}</strong>${statusHtml}</div>
+      ${contentHtml}
       <div class="document-actions-stack">${actionHtml}</div>
     </article>`;
   }
@@ -658,7 +788,9 @@
     const groups = documentGroups();
     elements.documentsEmpty.hidden = groups.length > 0;
     elements.documentsList.hidden = groups.length === 0;
-    if (groups.length > 0) elements.documentsList.innerHTML = groups.map(documentSessionItem).join("");
+    if (groups.length > 0) {
+      elements.documentsList.innerHTML = groups.map(documentSessionItem).join("");
+    }
   }
 
   function incidentItems() {
@@ -876,23 +1008,30 @@
     elements.documentsList.hidden = true;
     elements.refreshDocumentsButton.disabled = true;
     try {
-      const [documentsResult, generationsResult] = await Promise.all([
+      const [documentsResult, generationsResult, downloadsResult] = await Promise.all([
         client
           .from("municipal_documents")
-          .select("id, session_id, version, sync_status, validation_status, incident_message, upload_status, created_at, processed_at")
+          .select("id, session_id, version, sync_status, validation_status, incident_message, upload_status, created_at, processed_at, internal_document_id, validated_internal_document_id, provincial_validated_at, provincial_validated_by")
           .order("version", { ascending: false }),
         client
           .from("annex_generation_requests")
           .select("id, municipality_id, session_id, status, storage_bucket, storage_path, output_iv, plain_size_bytes, plain_sha256, encrypted_size_bytes, page_count, file_name, incident_message, created_at, generated_at, downloaded_at, expires_at")
           .order("created_at", { ascending: false }),
+        client
+          .from("annex_document_download_requests")
+          .select("id, municipality_id, session_id, municipal_document_id, variant, status, storage_bucket, storage_path, output_iv, plain_size_bytes, plain_sha256, encrypted_size_bytes, file_name, incident_message, created_at, prepared_at, downloaded_at, expires_at")
+          .order("created_at", { ascending: false }),
       ]);
       if (documentsResult.error) throw new Error(documentsResult.error.message);
       if (generationsResult.error) throw new Error(generationsResult.error.message);
+      if (downloadsResult.error) throw new Error(downloadsResult.error.message);
       municipalDocuments = Array.isArray(documentsResult.data) ? documentsResult.data : [];
       annexGenerationRequests = Array.isArray(generationsResult.data) ? generationsResult.data : [];
-      elements.documentTabCount.textContent = String(municipalDocuments.filter((item) => item.validation_status !== "superseded").length);
+      annexDocumentDownloadRequests = Array.isArray(downloadsResult.data) ? downloadsResult.data : [];
+      elements.documentTabCount.textContent = String(
+        municipalDocuments.filter((item) => item.validation_status !== "superseded").length,
+      );
       renderDocuments();
-      renderIncidents();
     } finally {
       elements.documentsLoading.hidden = true;
       elements.refreshDocumentsButton.disabled = false;
@@ -907,44 +1046,44 @@
   function registrationsForAnnex(sessionId) {
     return registrations.filter((registration) =>
       registration.session?.id === sessionId
-      && !["cancelled", "absent"].includes(registration.status)
+      && registration.status === "attended"
       && registration.program_id
       && registration.program_name_snapshot
     );
   }
 
-  function updateAnnexParticipantCount() {
-    const selected = elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]:checked').length;
-    elements.annexParticipantCount.textContent = `${selected} persona${selected === 1 ? "" : "s"} seleccionada${selected === 1 ? "" : "s"}`;
-    elements.annexSelectAll.checked = selected > 0
-      && selected === elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]').length;
-  }
-
   function openAnnexGenerationDialog(sessionId) {
     const session = findRegistrationSession(sessionId);
     if (!session) return;
-    const available = registrationsForAnnex(sessionId);
-    if (available.length === 0) {
-      showNotice("warning", "No hay personas disponibles con programa asignado para generar el Anexo I.");
+    const group = documentGroups().find((item) => item.session.id === sessionId);
+    if (!group || !sessionHasFinished(session)) {
+      showNotice("warning", `El Anexo I estará disponible después de la hora de finalización de la sesión (${formatTime(session.end_time)}).`);
+      return;
+    }
+    if (group.pendingAttendance > 0) {
+      showNotice("warning", "Antes de generar el Anexo I debe registrarse la asistencia o ausencia de todas las personas inscritas.");
       return;
     }
 
-    const attended = available.filter((item) => item.status === "attended");
-    const initiallySelected = new Set((attended.length > 0 ? attended : available).map((item) => item.id));
+    const attended = registrationsForAnnex(sessionId);
+    if (attended.length === 0) {
+      showNotice("warning", "No hay personas con asistencia confirmada para generar el Anexo I.");
+      return;
+    }
+
     clearNotice(elements.annexGenerationNotice);
     elements.annexGenerationForm.reset();
     elements.annexGenerationSessionId.value = session.id;
-    elements.annexGenerationSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
+    elements.annexGenerationSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
     elements.annexModality.value = "online";
-    elements.annexRepresentativeName.value = currentProfile?.full_name || "";
+    elements.annexRepresentativeName.value = "";
     elements.annexRepresentativePosition.value = "";
-    elements.annexParticipantsList.innerHTML = available.map((registration) => `
-      <label class="annex-participant-row">
-        <input type="checkbox" value="${registration.id}" ${initiallySelected.has(registration.id) ? "checked" : ""}>
+    elements.annexParticipantCount.textContent = `${attended.length} persona${attended.length === 1 ? "" : "s"} asistente${attended.length === 1 ? "" : "s"} incluida${attended.length === 1 ? "" : "s"} automáticamente`;
+    elements.annexParticipantsList.innerHTML = attended.map((registration) => `
+      <div class="annex-participant-row annex-participant-readonly">
         <span><strong>${escapeHtml(registration.participant?.display_name || "Persona")}</strong><small>${escapeHtml(registration.participant?.masked_document || "Documento protegido")} · ${escapeHtml(registration.program_name_snapshot)}</small></span>
-      </label>
+      </div>
     `).join("");
-    updateAnnexParticipantCount();
     elements.annexGenerationDialog.showModal();
   }
 
@@ -959,12 +1098,12 @@
     event.preventDefault();
     clearNotice(elements.annexGenerationNotice);
     const sessionId = elements.annexGenerationSessionId.value;
-    const registrationIds = [...elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+    const registrationIds = registrationsForAnnex(sessionId).map((item) => item.id);
     const representativeName = normalizePersonText(elements.annexRepresentativeName.value);
     const representativePosition = normalizePersonText(elements.annexRepresentativePosition.value);
 
     if (registrationIds.length < 1) {
-      showNotice("warning", "Selecciona al menos una persona.", elements.annexGenerationNotice);
+      showNotice("warning", "No hay personas asistentes para incluir.", elements.annexGenerationNotice);
       return;
     }
     if (!representativeName || !representativePosition) {
@@ -1062,9 +1201,110 @@
       await client.storage.from(request.storage_bucket).remove([request.storage_path]);
       localStorage.removeItem(annexKeyStorageName(request.id));
       await loadDocuments();
-      showNotice("success", "El Anexo I se ha descargado. Ya puede imprimirse para recoger las firmas.");
+      showNotice("success", "Anexo I descargado. Imprímelo para recoger las firmas manuscritas de las personas asistentes y, después, obtén la firma digital de la persona responsable del ayuntamiento.");
     } catch (error) {
       showNotice("error", `No se pudo descargar y descifrar el Anexo I: ${error.message}`);
+    }
+  }
+
+  async function prepareAnnexDocumentDownload(documentId, sessionId, variant) {
+    if (!activeEncryptionKey) {
+      showNotice("error", "No está disponible la clave pública de cifrado.");
+      return;
+    }
+    clearNotice();
+    try {
+      const key = await createAnnexDownloadKey(activeEncryptionKey.public_key_pem);
+      const { data, error } = await client.rpc("begin_annex_document_download", {
+        p_document_id: documentId,
+        p_variant: variant,
+        p_key_id: activeEncryptionKey.id,
+        p_encrypted_download_key: key.encryptedKey,
+      });
+      if (error) throw new Error(error.message);
+      const response = Array.isArray(data) ? data[0] : data;
+      if (!response?.request_id) throw new Error("Supabase no devolvió la solicitud de descarga.");
+      localStorage.setItem(
+        annexDocumentDownloadKeyStorageName(response.request_id),
+        key.rawKey,
+      );
+      await loadDocuments();
+      showNotice("success", "El SAE está preparando la descarga cifrada. Pulsa Actualizar dentro de aproximadamente un minuto.");
+    } catch (error) {
+      showNotice("error", `No se pudo preparar la descarga: ${error.message}`);
+    }
+  }
+
+  async function downloadAnnexDocument(requestId) {
+    const request = annexDocumentDownloadRequests.find((item) => item.id === requestId);
+    if (!request || request.status !== "ready" || !request.storage_path) return;
+    const rawKeyBase64 = localStorage.getItem(
+      annexDocumentDownloadKeyStorageName(request.id),
+    );
+    if (!rawKeyBase64) {
+      showNotice("warning", "Esta descarga se preparó desde otro navegador o se eliminó su clave local. Pulsa Preparar descarga para obtener una nueva copia.");
+      return;
+    }
+
+    clearNotice();
+    try {
+      const { data, error } = await client.storage
+        .from(request.storage_bucket)
+        .download(request.storage_path);
+      if (error) throw new Error(error.message);
+      const encrypted = new Uint8Array(await data.arrayBuffer());
+      if (encrypted.byteLength !== Number(request.encrypted_size_bytes)) {
+        throw new Error("El tamaño del archivo cifrado no coincide.");
+      }
+
+      const key = await crypto.subtle.importKey(
+        "raw",
+        base64ToBytes(rawKeyBase64),
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"],
+      );
+      const plain = await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: base64ToBytes(request.output_iv),
+          additionalData: new TextEncoder().encode(
+            annexDocumentDownloadAdditionalData(request),
+          ),
+          tagLength: 128,
+        },
+        key,
+        encrypted,
+      );
+      const bytes = new Uint8Array(plain);
+      if (new TextDecoder("ascii").decode(bytes.slice(0, 5)) !== "%PDF-") {
+        throw new Error("El contenido descifrado no es un PDF válido.");
+      }
+      const digest = bytesToHex(await crypto.subtle.digest("SHA-256", bytes));
+      if (digest !== request.plain_sha256) {
+        throw new Error("La huella del PDF no coincide.");
+      }
+
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = request.file_name || "Anexo_I_firmado.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+
+      const { error: markError } = await client.rpc(
+        "mark_annex_document_downloaded",
+        { p_request_id: request.id },
+      );
+      if (markError) throw new Error(markError.message);
+      await client.storage.from(request.storage_bucket).remove([request.storage_path]);
+      localStorage.removeItem(annexDocumentDownloadKeyStorageName(request.id));
+      await loadDocuments();
+      showNotice("success", "PDF descargado. Conserva el archivo electrónico original para poder verificar sus firmas digitales; el portal no ofrece opción de impresión para estas versiones firmadas.");
+    } catch (error) {
+      showNotice("error", `No se pudo descargar y descifrar el PDF: ${error.message}`);
     }
   }
 
@@ -1734,9 +1974,13 @@
       const uploadButton = event.target.closest(".js-upload-document");
       const generateButton = event.target.closest(".js-generate-annex");
       const downloadButton = event.target.closest(".js-download-generated");
+      const prepareSignedButton = event.target.closest(".js-prepare-annex-document-download");
+      const signedDownloadButton = event.target.closest(".js-download-annex-document");
       if (uploadButton && !uploadButton.disabled) openDocumentUploadDialog(uploadButton.dataset.sessionId);
       if (generateButton && !generateButton.disabled) openAnnexGenerationDialog(generateButton.dataset.sessionId);
       if (downloadButton && !downloadButton.disabled) void downloadGeneratedAnnex(downloadButton.dataset.requestId);
+      if (prepareSignedButton && !prepareSignedButton.disabled) void prepareAnnexDocumentDownload(prepareSignedButton.dataset.documentId, prepareSignedButton.dataset.sessionId, prepareSignedButton.dataset.variant);
+      if (signedDownloadButton && !signedDownloadButton.disabled) void downloadAnnexDocument(signedDownloadButton.dataset.requestId);
     });
     [elements.firstName, elements.firstSurname, elements.secondSurname, elements.documentNumber].forEach((input) => input.addEventListener("input", updateSafePreview));
     elements.documentType.addEventListener("change", updateSafePreview);
@@ -1763,11 +2007,6 @@
     elements.annexGenerationForm.addEventListener("submit", handleAnnexGeneration);
     elements.closeAnnexGenerationDialog.addEventListener("click", closeAnnexGenerationDialog);
     elements.cancelAnnexGeneration.addEventListener("click", closeAnnexGenerationDialog);
-    elements.annexSelectAll.addEventListener("change", () => {
-      elements.annexParticipantsList.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = elements.annexSelectAll.checked; });
-      updateAnnexParticipantCount();
-    });
-    elements.annexParticipantsList.addEventListener("change", updateAnnexParticipantCount);
   }
 
   async function initialize() {

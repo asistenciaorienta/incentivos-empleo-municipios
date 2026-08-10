@@ -1167,3 +1167,72 @@ select:focus {
     width: 100%;
   }
 }
+
+
+/* v1.5 · Flujo definitivo de Anexos I */
+.annex-participant-readonly {
+  grid-template-columns: minmax(0, 1fr);
+  cursor: default;
+  background: var(--surface-soft);
+}
+
+.annex-participant-readonly > span {
+  min-width: 0;
+}
+
+.annex-participant-readonly strong,
+.annex-participant-readonly small {
+  display: block;
+}
+
+.annex-participant-readonly small {
+  margin-top: .18rem;
+  color: var(--muted);
+}
+
+.document-actions-stack {
+  display: grid;
+  gap: .55rem;
+  justify-items: stretch;
+  min-width: 190px;
+}
+
+.signed-file-warning {
+  display: grid;
+  gap: .2rem;
+  padding: .7rem .8rem;
+  border: 1px solid #d7c98a;
+  border-radius: .7rem;
+  background: #fff9df;
+  color: #574b18;
+}
+
+.signed-file-warning strong,
+.signed-file-warning span {
+  display: block;
+}
+
+.download-actions {
+  display: grid;
+  gap: .65rem;
+}
+
+.download-variant {
+  display: grid;
+  gap: .35rem;
+  padding: .65rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: .65rem;
+  background: #fff;
+}
+
+.download-variant strong {
+  font-size: .84rem;
+}
+
+@media (max-width: 820px) {
+  .document-actions-stack {
+    min-width: 0;
+    width: 100%;
+  }
+}
