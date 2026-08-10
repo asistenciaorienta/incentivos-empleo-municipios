@@ -705,8 +705,26 @@
     const canCreate = finished && attendanceClosed && group.attended > 0;
     const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
 
+    const generationStatusClass = generation
+      ? (["ready", "downloaded"].includes(generation.status)
+          ? "synced"
+          : generation.status === "error"
+            ? "incident"
+            : "pending")
+      : "pending";
+
+    const generationStateClass = !generation
+      ? "annex-not-generated"
+      : ["ready", "downloaded"].includes(generation.status)
+        ? "annex-generated"
+        : ["pending", "processing"].includes(generation.status)
+          ? "annex-generating"
+          : generation.status === "error"
+            ? "annex-generation-error"
+            : "annex-not-generated";
+
     const generationStatusHtml = generation
-      ? `<div class="status-row"><span class="badge ${generation.status === "ready" ? "synced" : generation.status === "error" ? "incident" : "pending"}">${escapeHtml(annexGenerationStatusLabel(generation.status))}</span></div><small>${generation.page_count ? `${generation.page_count} página${generation.page_count === 1 ? "" : "s"} · ` : ""}${generation.generated_at ? "generado por el SAE" : "solicitud en curso"}</small>${generation.incident_message ? `<small class="danger-text">${escapeHtml(generation.incident_message)}</small>` : ""}`
+      ? `<div class="status-row"><span class="badge ${generationStatusClass}">${escapeHtml(annexGenerationStatusLabel(generation.status))}</span></div><small>${generation.page_count ? `${generation.page_count} página${generation.page_count === 1 ? "" : "s"} · ` : ""}${generation.generated_at ? "generado por el SAE" : "solicitud en curso"}</small>${generation.incident_message ? `<small class="danger-text">${escapeHtml(generation.incident_message)}</small>` : ""}`
       : `<span class="badge pending">No generado</span>`;
 
     const localGenerationKey = generation
@@ -737,7 +755,15 @@
       } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
         actionHtml = `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
       } else if (canCreate) {
-        actionHtml = `<button class="button primary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generation?.status === "ready" && !localGenerationKey ? "Generar nueva copia en este dispositivo" : "Generar Anexo I"}</button>`;
+        const generateLabel = generation?.status === "downloaded"
+          ? "Volver a generar Anexo I"
+          : generation?.status === "error"
+            ? "Volver a generar Anexo I"
+            : generation?.status === "ready" && !localGenerationKey
+              ? "Generar nueva copia en este dispositivo"
+              : "Generar Anexo I";
+
+        actionHtml = `<button class="button primary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generateLabel}</button>`;
       } else {
         actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
       }
@@ -773,7 +799,11 @@
         : `<button class="button secondary small" type="button" disabled>No disponible para descarga</button>`;
     }
 
-    return `<article class="document-item document-mode-item" data-session-id="${group.session.id}">
+    const visualStateClass = documentViewMode === "create"
+      ? generationStateClass
+      : "";
+
+    return `<article class="document-item document-mode-item ${visualStateClass}" data-session-id="${group.session.id}">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
         <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>

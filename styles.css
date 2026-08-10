@@ -1236,3 +1236,46 @@ select:focus {
     width: 100%;
   }
 }
+
+
+/* v1.5.2 · Estados visuales en Creación de Anexos I */
+.document-item.annex-generated {
+  border-left: 5px solid #168654;
+  background: #f3fbf6;
+}
+.document-item.annex-not-generated {
+  border-left: 5px solid #c58a20;
+  background: #fffbf1;
+}
+.document-item.annex-generating {
+  border-left: 5px solid #487e9d;
+  background: #f3f8fb;
+}
+.document-item.annex-generation-error {
+  border-left: 5px solid #b94b40;
+  background: #fff5f3;
+}
+.document-item.annex-generated h3::after {
+  content: "Generado";
+  display: inline-flex;
+  margin-left: .55rem;
+  padding: .17rem .48rem;
+  border-radius: 999px;
+  background: #e1f4e8;
+  color: #126b46;
+  font-size: .7rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.document-item.annex-not-generated h3::after {
+  content: "Pendiente";
+  display: inline-flex;
+  margin-left: .55rem;
+  padding: .17rem .48rem;
+  border-radius: 999px;
+  background: #fff0ca;
+  color: #77520e;
+  font-size: .7rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
