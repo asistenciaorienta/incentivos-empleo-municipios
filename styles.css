@@ -1279,3 +1279,42 @@ select:focus {
   font-weight: 800;
   vertical-align: middle;
 }
+
+
+/* v1.5.3 · Jerarquía visual del flujo de Anexos I */
+
+/* Acción principal cuando el PDF está listo para recoger firmas. */
+.download-signatures-button {
+  border-color: #176f9c;
+  background: #176f9c;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(23, 111, 156, .18);
+}
+
+.download-signatures-button:hover {
+  border-color: #125d83;
+  background: #125d83;
+}
+
+/* Acción secundaria: el documento ya se generó correctamente. */
+.regenerate-annex-button {
+  opacity: .72;
+  font-weight: 650;
+}
+
+.regenerate-annex-button:hover {
+  opacity: 1;
+}
+
+/* Antes de que el ayuntamiento haya remitido el PDF firmado. */
+.badge.upload-pending {
+  color: #77520e;
+  background: #fff0ca;
+}
+
+/* PDF ya entregado: ahora la actuación corresponde a la DP. */
+.badge.validation-pending {
+  color: #315978;
+  background: #e8f1f7;
+  border: 1px solid #c7dae7;
+}

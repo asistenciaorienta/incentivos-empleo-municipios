@@ -753,7 +753,7 @@
       if (generation?.status === "pending" || generation?.status === "processing") {
         actionHtml = `<button class="button secondary small" type="button" disabled>Generando…</button>`;
       } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
-        actionHtml = `<button class="button primary small js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
+        actionHtml = `<button class="button small download-signatures-button js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
       } else if (canCreate) {
         const generateLabel = generation?.status === "downloaded"
           ? "Volver a generar Anexo I"
@@ -763,7 +763,11 @@
               ? "Generar nueva copia en este dispositivo"
               : "Generar Anexo I";
 
-        actionHtml = `<button class="button primary small js-generate-annex" type="button" data-session-id="${group.session.id}">${generateLabel}</button>`;
+        const generateButtonClass = generation?.status === "downloaded"
+          ? "button secondary small regenerate-annex-button"
+          : "button primary small";
+
+        actionHtml = `<button class="${generateButtonClass} js-generate-annex" type="button" data-session-id="${group.session.id}">${generateLabel}</button>`;
       } else {
         actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
       }
@@ -773,9 +777,25 @@
         && group.attended > 0
         && downloadedForSignatures
         && (!document || document.validation_status === "incident" || document.sync_status === "error");
-      const uploadStatus = document
-        ? `<div class="status-row"><span class="badge ${document.sync_status}">${escapeHtml(documentSyncLabel(document.sync_status))}</span><span class="badge ${document.validation_status === "validated" ? "synced" : document.validation_status === "incident" ? "incident" : "pending"}">${escapeHtml(documentValidationLabel(document.validation_status))}</span></div><small>Versión ${document.version}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`
-        : `<span class="badge pending">Pendiente de subida</span>`;
+      let uploadStatus = `<span class="badge upload-pending">Pendiente de subida</span>`;
+
+      if (document) {
+        let visibleStatusClass = "validation-pending";
+        let visibleStatusLabel = "Pendiente de validación";
+
+        if (document.validation_status === "validated") {
+          visibleStatusClass = "synced";
+          visibleStatusLabel = "Validado";
+        } else if (document.validation_status === "incident") {
+          visibleStatusClass = "incident";
+          visibleStatusLabel = "Con incidencia";
+        } else if (document.sync_status === "error") {
+          visibleStatusClass = "incident";
+          visibleStatusLabel = "Error en el envío";
+        }
+
+        uploadStatus = `<div class="status-row"><span class="badge ${visibleStatusClass}">${escapeHtml(visibleStatusLabel)}</span></div><small>Versión ${document.version}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`;
+      }
 
       contentHtml = `<div class="document-status-column"><strong>PDF firmado por asistentes + responsable</strong>${uploadStatus}</div><div class="document-status-column"><strong>Requisito</strong><span>${downloadedForSignatures ? "Listado para firmas descargado." : "Primero debes generar y descargar el listado para firmas."}</span></div>`;
 
@@ -792,7 +812,7 @@
       const validated = document?.validation_status === "validated";
       contentHtml = validated
         ? `<div class="document-status-column"><strong>Estado</strong><span class="badge synced">Validado por Dirección Provincial</span><small>Versión ${document.version}</small></div><div class="signed-file-warning"><strong>Documento con firma digital</strong><span>Conserva el archivo PDF electrónico. La impresión no permite verificar las firmas digitales.</span></div>`
-        : `<div class="document-status-column"><strong>Estado</strong><span class="badge pending">Pendiente de validación</span><small>${document ? documentValidationLabel(document.validation_status) : "Todavía no se ha recibido el Anexo I firmado."}</small></div>`;
+        : `<div class="document-status-column"><strong>Estado</strong><span class="badge ${document ? "validation-pending" : "upload-pending"}">${document ? "Pendiente de validación" : "Pendiente de subida"}</span><small>${document ? "El documento está pendiente de revisión por la Dirección Provincial." : "Todavía no se ha recibido el Anexo I firmado."}</small></div>`;
 
       actionHtml = validated
         ? `<div class="download-actions">${annexDocumentDownloadAction(document, "municipal_signed")}${annexDocumentDownloadAction(document, "provincial_validated")}</div>`
