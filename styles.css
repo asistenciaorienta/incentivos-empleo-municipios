@@ -1401,3 +1401,39 @@ select:focus {
 .municipal-source-download:hover {
   opacity: 1;
 }
+
+
+/* v1.5.8 · Descargas finales en dos columnas */
+.download-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: .8rem;
+  align-items: stretch;
+}
+
+.download-actions .download-variant {
+  min-width: 0;
+  height: 100%;
+}
+
+.provincial-final-download,
+.municipal-source-download {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.provincial-final-download .important-download-button {
+  margin-top: auto;
+}
+
+.municipal-source-download .button {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+@media (max-width: 760px) {
+  .download-actions {
+    grid-template-columns: 1fr;
+  }
+}
