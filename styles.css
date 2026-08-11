@@ -1318,3 +1318,13 @@ select:focus {
   background: #e8f1f7;
   border: 1px solid #c7dae7;
 }
+
+
+/* v1.5.4 · Subsanación */
+.document-item .badge.incident + small {
+  margin-top: .25rem;
+}
+
+.js-upload-document {
+  white-space: nowrap;
+}

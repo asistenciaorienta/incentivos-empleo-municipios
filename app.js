@@ -772,11 +772,18 @@
         actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
       }
     } else if (documentViewMode === "upload") {
-      const canUpload = finished
-        && attendanceClosed
-        && group.attended > 0
-        && downloadedForSignatures
-        && (!document || document.validation_status === "incident" || document.sync_status === "error");
+      const isCorrection =
+        document?.validation_status === "incident"
+        || document?.sync_status === "error";
+
+      const canUpload = isCorrection
+        || (
+          finished
+          && attendanceClosed
+          && group.attended > 0
+          && downloadedForSignatures
+          && !document
+        );
       let uploadStatus = `<span class="badge upload-pending">Pendiente de subida</span>`;
 
       if (document) {
@@ -797,10 +804,16 @@
         uploadStatus = `<div class="status-row"><span class="badge ${visibleStatusClass}">${escapeHtml(visibleStatusLabel)}</span></div><small>Versión ${document.version}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`;
       }
 
-      contentHtml = `<div class="document-status-column"><strong>PDF firmado por asistentes + responsable</strong>${uploadStatus}</div><div class="document-status-column"><strong>Requisito</strong><span>${downloadedForSignatures ? "Listado para firmas descargado." : "Primero debes generar y descargar el listado para firmas."}</span></div>`;
+      const uploadRequirement = isCorrection
+        ? "La Dirección Provincial ha solicitado una subsanación. Puedes enviar directamente una nueva versión corregida."
+        : downloadedForSignatures
+          ? "Listado para firmas descargado."
+          : "Primero debes generar y descargar el listado para firmas.";
+
+      contentHtml = `<div class="document-status-column"><strong>PDF firmado por asistentes + responsable</strong>${uploadStatus}</div><div class="document-status-column"><strong>Requisito</strong><span>${escapeHtml(uploadRequirement)}</span></div>`;
 
       if (canUpload) {
-        actionHtml = `<button class="button primary small js-upload-document" type="button" data-session-id="${group.session.id}">${document ? "Enviar nueva versión" : "Subir Anexo I firmado"}</button>`;
+        actionHtml = `<button class="button primary small js-upload-document" type="button" data-session-id="${group.session.id}">${isCorrection ? "Enviar versión corregida" : "Subir Anexo I firmado"}</button>`;
       } else if (document?.validation_status === "validated") {
         actionHtml = `<button class="button secondary small" type="button" disabled>Validado</button>`;
       } else if (document?.validation_status === "pending_validation" && document.sync_status === "synced") {
