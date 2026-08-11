@@ -804,20 +804,30 @@
         uploadStatus = `<div class="status-row"><span class="badge ${visibleStatusClass}">${escapeHtml(visibleStatusLabel)}</span></div><small>Versión ${document.version}</small>${document.incident_message ? `<small class="danger-text">${escapeHtml(document.incident_message)}</small>` : ""}`;
       }
 
-      const uploadRequirement = isCorrection
-        ? "La Dirección Provincial ha solicitado una subsanación. Puedes enviar directamente una nueva versión corregida."
-        : downloadedForSignatures
-          ? "Listado para firmas descargado."
-          : "Primero debes generar y descargar el listado para firmas.";
+      let secondaryTitle = "Requisito";
+      let secondaryText = downloadedForSignatures
+        ? "Listado para firmas descargado."
+        : "Primero debes generar y descargar el listado para firmas.";
 
-      contentHtml = `<div class="document-status-column"><strong>PDF firmado por asistentes + responsable</strong>${uploadStatus}</div><div class="document-status-column"><strong>Requisito</strong><span>${escapeHtml(uploadRequirement)}</span></div>`;
+      if (isCorrection) {
+        secondaryTitle = "Subsanación";
+        secondaryText = "La Dirección Provincial ha solicitado una corrección. Puedes enviar directamente una nueva versión.";
+      } else if (document?.validation_status === "pending_validation") {
+        secondaryTitle = "Siguiente paso";
+        secondaryText = "Documento enviado. No tienes que realizar ninguna actuación mientras la Dirección Provincial lo revisa.";
+      } else if (document?.validation_status === "validated") {
+        secondaryTitle = "Proceso";
+        secondaryText = "Documento validado por la Dirección Provincial.";
+      }
+
+      contentHtml = `<div class="document-status-column"><strong>PDF firmado por asistentes + responsable</strong>${uploadStatus}</div><div class="document-status-column"><strong>${escapeHtml(secondaryTitle)}</strong><span>${escapeHtml(secondaryText)}</span></div>`;
 
       if (canUpload) {
         actionHtml = `<button class="button primary small js-upload-document" type="button" data-session-id="${group.session.id}">${isCorrection ? "Enviar versión corregida" : "Subir Anexo I firmado"}</button>`;
       } else if (document?.validation_status === "validated") {
         actionHtml = `<button class="button secondary small" type="button" disabled>Validado</button>`;
-      } else if (document?.validation_status === "pending_validation" && document.sync_status === "synced") {
-        actionHtml = `<button class="button secondary small" type="button" disabled>Pendiente de validación provincial</button>`;
+      } else if (document?.validation_status === "pending_validation") {
+        actionHtml = `<span class="workflow-waiting-note">En revisión por la Dirección Provincial</span>`;
       } else {
         actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
       }

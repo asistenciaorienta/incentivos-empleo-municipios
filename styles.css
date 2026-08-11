@@ -1328,3 +1328,19 @@ select:focus {
 .js-upload-document {
   white-space: nowrap;
 }
+
+
+/* v1.5.6 · Estado de espera de validación */
+.workflow-waiting-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: .48rem .72rem;
+  border-radius: .65rem;
+  background: #eef5f9;
+  color: #315978;
+  border: 1px solid #cfdee8;
+  font-size: .86rem;
+  font-weight: 700;
+  text-align: center;
+}
