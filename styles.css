@@ -1344,3 +1344,60 @@ select:focus {
   font-weight: 700;
   text-align: center;
 }
+
+
+/* v1.5.7 · Jerarquía de descargas: validado por DP como documento principal */
+.download-variant-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+
+.download-variant-help {
+  display: block;
+  font-size: .78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.provincial-final-download {
+  padding: .9rem;
+  border: 2px solid #3d769a;
+  background: #f1f7fb;
+  box-shadow: 0 4px 14px rgba(49, 89, 120, .10);
+}
+
+.provincial-final-download strong {
+  font-size: .94rem;
+  color: #244c68;
+}
+
+.final-document-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .18rem .45rem;
+  border-radius: 999px;
+  background: #dbeaf3;
+  color: #244c68;
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.important-download-button {
+  width: 100%;
+  min-height: 2.55rem;
+  font-weight: 800;
+  font-size: .88rem;
+}
+
+.municipal-source-download {
+  opacity: .82;
+  background: #fafafa;
+}
+
+.municipal-source-download:hover {
+  opacity: 1;
+}

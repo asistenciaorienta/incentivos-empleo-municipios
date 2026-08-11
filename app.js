@@ -665,15 +665,24 @@
   }
 
   function annexDocumentDownloadAction(document, variant) {
-    const label = variant === "municipal_signed"
-      ? "Firmado por asistentes + responsable"
-      : "Validado por Dirección Provincial";
+    const isProvincialValidated = variant === "provincial_validated";
+    const label = isProvincialValidated
+      ? "Validado por Dirección Provincial"
+      : "Firmado por asistentes + responsable";
     const available = variant === "municipal_signed"
       ? Boolean(document.internal_document_id)
       : Boolean(document.validated_internal_document_id);
 
+    const variantClass = isProvincialValidated
+      ? "download-variant provincial-final-download"
+      : "download-variant municipal-source-download";
+
+    const helperText = isProvincialValidated
+      ? `<span class="download-variant-help">Documento final validado por la Dirección Provincial.</span>`
+      : `<span class="download-variant-help">Documento remitido inicialmente por el ayuntamiento.</span>`;
+
     if (!available) {
-      return `<div class="download-variant"><strong>${escapeHtml(label)}</strong><button class="button secondary small" type="button" disabled>No disponible</button></div>`;
+      return `<div class="${variantClass}"><div class="download-variant-heading"><strong>${escapeHtml(label)}</strong>${isProvincialValidated ? '<span class="final-document-badge">Documento final</span>' : ''}</div>${helperText}<button class="button secondary small" type="button" disabled>No disponible</button></div>`;
     }
 
     const request = latestAnnexDocumentDownload(document.id, variant);
@@ -683,18 +692,18 @@
 
     let action = "";
     if (request?.status === "pending" || request?.status === "processing") {
-      action = `<button class="button secondary small" type="button" disabled>Preparando…</button>`;
+      action = `<button class="button ${isProvincialValidated ? "primary" : "secondary"} ${isProvincialValidated ? "important-download-button" : ""} small" type="button" disabled>Preparando…</button>`;
     } else if (request?.status === "ready" && localKey && request.storage_path) {
-      action = `<button class="button primary small js-download-annex-document" type="button" data-request-id="${request.id}">Descargar PDF</button>`;
+      action = `<button class="button ${isProvincialValidated ? "primary important-download-button" : "secondary"} small js-download-annex-document" type="button" data-request-id="${request.id}">${isProvincialValidated ? "Descargar validado por DP" : "Descargar PDF municipal"}</button>`;
     } else {
-      action = `<button class="button secondary small js-prepare-annex-document-download" type="button" data-document-id="${document.id}" data-session-id="${document.session_id}" data-variant="${variant}">Preparar descarga</button>`;
+      action = `<button class="button ${isProvincialValidated ? "primary important-download-button" : "secondary"} small js-prepare-annex-document-download" type="button" data-document-id="${document.id}" data-session-id="${document.session_id}" data-variant="${variant}">${isProvincialValidated ? "Preparar descarga del validado por DP" : "Preparar descarga"}</button>`;
     }
 
     const incident = request?.status === "error" && request.incident_message
       ? `<small class="danger-text">${escapeHtml(request.incident_message)}</small>`
       : "";
 
-    return `<div class="download-variant"><strong>${escapeHtml(label)}</strong>${action}${incident}</div>`;
+    return `<div class="${variantClass}"><div class="download-variant-heading"><strong>${escapeHtml(label)}</strong>${isProvincialValidated ? '<span class="final-document-badge">Documento final</span>' : ''}</div>${helperText}${action}${incident}</div>`;
   }
 
   function documentSessionItem(group) {
@@ -838,7 +847,7 @@
         : `<div class="document-status-column"><strong>Estado</strong><span class="badge ${document ? "validation-pending" : "upload-pending"}">${document ? "Pendiente de validación" : "Pendiente de subida"}</span><small>${document ? "El documento está pendiente de revisión por la Dirección Provincial." : "Todavía no se ha recibido el Anexo I firmado."}</small></div>`;
 
       actionHtml = validated
-        ? `<div class="download-actions">${annexDocumentDownloadAction(document, "municipal_signed")}${annexDocumentDownloadAction(document, "provincial_validated")}</div>`
+        ? `<div class="download-actions">${annexDocumentDownloadAction(document, "provincial_validated")}${annexDocumentDownloadAction(document, "municipal_signed")}</div>`
         : `<button class="button secondary small" type="button" disabled>No disponible para descarga</button>`;
     }
 
