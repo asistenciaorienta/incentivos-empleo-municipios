@@ -1437,3 +1437,77 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* v1.5.9 · Descarga final a ancho completo de la sesión */
+.document-mode-item.document-download-item {
+  grid-template-columns: minmax(250px, .9fr) minmax(0, 2.1fr);
+  align-items: start;
+}
+
+.document-download-item .download-status-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, .7fr) minmax(260px, 1.3fr);
+  gap: .8rem;
+  align-items: center;
+}
+
+.document-download-item > .document-actions-stack {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+.document-download-item .download-actions {
+  width: 100%;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+}
+
+/* Una sesión con PDF municipal ya remitido no vuelve a ser "pendiente de creación". */
+.document-item.annex-already-submitted {
+  border-left: 5px solid #487e9d;
+  background: #f4f8fb;
+}
+
+.document-item.annex-already-validated {
+  border-left: 5px solid #168654;
+  background: #f3fbf6;
+}
+
+.document-item.annex-already-incident {
+  border-left: 5px solid #b94b40;
+  background: #fff5f3;
+}
+
+.creation-already-submitted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .5rem .7rem;
+  border: 1px solid #cfdee8;
+  border-radius: .65rem;
+  background: #eef5f9;
+  color: #315978;
+  font-size: .84rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .document-mode-item.document-download-item {
+    grid-template-columns: 1fr;
+  }
+
+  .document-download-item .download-status-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .document-download-item > .document-actions-stack {
+    grid-column: auto;
+  }
+
+  .document-download-item .download-actions {
+    grid-template-columns: 1fr;
+  }
+}

@@ -744,41 +744,64 @@
     let actionHtml = "";
 
     if (documentViewMode === "create") {
-      let availability = "";
-      if (!finished) {
-        availability = group.session.end_time
-          ? `Disponible después de las ${formatTime(group.session.end_time)} del ${formatDate(group.session.session_date)}.`
-          : "La sesión no tiene hora de finalización definida.";
-      } else if (!attendanceClosed) {
-        availability = `Falta registrar asistencia o ausencia de ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"}.`;
-      } else if (group.attended < 1) {
-        availability = "No consta ninguna persona asistente.";
+      if (document) {
+        let documentStateClass = "validation-pending";
+        let documentStateLabel = "Pendiente de validación";
+        let documentStateText = "El Anexo I firmado ya fue remitido. No es necesario volver a generarlo.";
+
+        if (document.validation_status === "validated") {
+          documentStateClass = "synced";
+          documentStateLabel = "Validado por Dirección Provincial";
+          documentStateText = "El circuito documental de esta sesión ya está finalizado.";
+        } else if (document.validation_status === "incident") {
+          documentStateClass = "incident";
+          documentStateLabel = "Con incidencia";
+          documentStateText = "La corrección debe realizarse desde Subida de Anexos I; no es necesario regenerar el listado.";
+        } else if (document.sync_status === "error") {
+          documentStateClass = "incident";
+          documentStateLabel = "Error en el envío";
+          documentStateText = "Revisa la incidencia desde Subida de Anexos I.";
+        }
+
+        contentHtml = `<div class="document-status-column"><strong>Anexo I firmado</strong><div class="status-row"><span class="badge ${documentStateClass}">${escapeHtml(documentStateLabel)}</span></div><small>Versión ${document.version}</small></div><div class="document-status-column"><strong>Situación</strong><span>${escapeHtml(documentStateText)}</span></div>`;
+        actionHtml = `<span class="creation-already-submitted">Anexo I ya remitido</span>`;
       } else {
-        availability = `${group.attended} persona${group.attended === 1 ? "" : "s"} asistente${group.attended === 1 ? "" : "s"} se incluirán automáticamente.`;
-      }
+        let availability = "";
+        if (!finished) {
+          availability = group.session.end_time
+            ? `Disponible después de las ${formatTime(group.session.end_time)} del ${formatDate(group.session.session_date)}.`
+            : "La sesión no tiene hora de finalización definida.";
+        } else if (!attendanceClosed) {
+          availability = `Falta registrar asistencia o ausencia de ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"}.`;
+        } else if (group.attended < 1) {
+          availability = "No consta ninguna persona asistente.";
+        } else {
+          availability = `${group.attended} persona${group.attended === 1 ? "" : "s"} asistente${group.attended === 1 ? "" : "s"} se incluirán automáticamente.`;
+        }
 
-      contentHtml = `<div class="document-status-column"><strong>Asistencia</strong><span>${escapeHtml(availability)}</span></div><div class="document-status-column"><strong>Listado para firmas</strong>${generationStatusHtml}</div>`;
+        contentHtml = `<div class="document-status-column"><strong>Asistencia</strong><span>${escapeHtml(availability)}</span></div><div class="document-status-column"><strong>Listado para firmas</strong>${generationStatusHtml}</div>`;
 
-      if (generation?.status === "pending" || generation?.status === "processing") {
-        actionHtml = `<button class="button secondary small" type="button" disabled>Generando…</button>`;
-      } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
-        actionHtml = `<button class="button small download-signatures-button js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
-      } else if (canCreate) {
-        const generateLabel = generation?.status === "downloaded"
-          ? "Volver a generar Anexo I"
-          : generation?.status === "error"
+        if (generation?.status === "pending" || generation?.status === "processing") {
+          actionHtml = `<button class="button secondary small" type="button" disabled>Generando…</button>`;
+        } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
+          actionHtml = `<button class="button small download-signatures-button js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
+        } else if (canCreate) {
+          const generateLabel = generation?.status === "downloaded"
             ? "Volver a generar Anexo I"
-            : generation?.status === "ready" && !localGenerationKey
-              ? "Generar nueva copia en este dispositivo"
-              : "Generar Anexo I";
+            : generation?.status === "error"
+              ? "Volver a generar Anexo I"
+              : generation?.status === "ready" && !localGenerationKey
+                ? "Generar nueva copia en este dispositivo"
+                : "Generar Anexo I";
 
-        const generateButtonClass = generation?.status === "downloaded"
-          ? "button secondary small regenerate-annex-button"
-          : "button primary small";
+          const generateButtonClass = generation?.status === "downloaded"
+            ? "button secondary small regenerate-annex-button"
+            : "button primary small";
 
-        actionHtml = `<button class="${generateButtonClass} js-generate-annex" type="button" data-session-id="${group.session.id}">${generateLabel}</button>`;
-      } else {
-        actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
+          actionHtml = `<button class="${generateButtonClass} js-generate-annex" type="button" data-session-id="${group.session.id}">${generateLabel}</button>`;
+        } else {
+          actionHtml = `<button class="button secondary small" type="button" disabled>No disponible todavía</button>`;
+        }
       }
     } else if (documentViewMode === "upload") {
       const isCorrection =
@@ -843,8 +866,8 @@
     } else {
       const validated = document?.validation_status === "validated";
       contentHtml = validated
-        ? `<div class="document-status-column"><strong>Estado</strong><span class="badge synced">Validado por Dirección Provincial</span><small>Versión ${document.version}</small></div><div class="signed-file-warning"><strong>Documento con firma digital</strong><span>Conserva el archivo PDF electrónico. La impresión no permite verificar las firmas digitales.</span></div>`
-        : `<div class="document-status-column"><strong>Estado</strong><span class="badge ${document ? "validation-pending" : "upload-pending"}">${document ? "Pendiente de validación" : "Pendiente de subida"}</span><small>${document ? "El documento está pendiente de revisión por la Dirección Provincial." : "Todavía no se ha recibido el Anexo I firmado."}</small></div>`;
+        ? `<div class="download-status-summary"><div class="document-status-column"><strong>Estado</strong><span class="badge synced">Validado por Dirección Provincial</span><small>Versión ${document.version}</small></div><div class="signed-file-warning"><strong>Documento con firma digital</strong><span>Conserva el archivo PDF electrónico. La impresión no permite verificar las firmas digitales.</span></div></div>`
+        : `<div class="download-status-summary"><div class="document-status-column"><strong>Estado</strong><span class="badge ${document ? "validation-pending" : "upload-pending"}">${document ? "Pendiente de validación" : "Pendiente de subida"}</span><small>${document ? "El documento está pendiente de revisión por la Dirección Provincial." : "Todavía no se ha recibido el Anexo I firmado."}</small></div></div>`;
 
       actionHtml = validated
         ? `<div class="download-actions">${annexDocumentDownloadAction(document, "provincial_validated")}${annexDocumentDownloadAction(document, "municipal_signed")}</div>`
@@ -852,10 +875,20 @@
     }
 
     const visualStateClass = documentViewMode === "create"
-      ? generationStateClass
+      ? (document
+          ? document.validation_status === "validated"
+            ? "annex-already-validated"
+            : document.validation_status === "incident" || document.sync_status === "error"
+              ? "annex-already-incident"
+              : "annex-already-submitted"
+          : generationStateClass)
       : "";
 
-    return `<article class="document-item document-mode-item ${visualStateClass}" data-session-id="${group.session.id}">
+    const viewStateClass = documentViewMode === "download"
+      ? "document-download-item"
+      : "";
+
+    return `<article class="document-item document-mode-item ${visualStateClass} ${viewStateClass}" data-session-id="${group.session.id}">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
         <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
