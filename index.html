@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260812-logo-v1-7-4-2">
+  <link rel="stylesheet" href="./styles.css?v=20260812-filtros-v1-8-1">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -146,10 +146,10 @@
           <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
           <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Alta participantes</h2></div>
         </div>
-        <section class="summary-grid" aria-label="Resumen">
-          <article class="summary-card"><span>Sesiones disponibles</span><strong id="sessionCount">0</strong></article>
-          <article class="summary-card"><span>Sesiones iniciales</span><strong id="initialCount">0</strong></article>
-          <article class="summary-card"><span>Sesiones finales</span><strong id="finalCount">0</strong></article>
+        <section class="summary-grid" aria-label="Resumen de sesiones disponibles">
+          <button class="summary-card summary-filter-button active" type="button" data-session-summary-filter="all"><span>Sesiones disponibles</span><strong id="sessionCount">0</strong><small>Mostrar todas</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-session-summary-filter="initial"><span>Sesiones iniciales</span><strong id="initialCount">0</strong><small>Filtrar iniciales</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-session-summary-filter="final"><span>Sesiones finales</span><strong id="finalCount">0</strong><small>Filtrar finales</small></button>
         </section>
 
         <section class="card sessions-card" aria-labelledby="sessionsTitle">
@@ -172,6 +172,13 @@
           <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
           <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Personas inscritas / cambios de sesión</h2></div>
         </div>
+        <section class="summary-grid registration-summary-grid" aria-label="Resumen de personas inscritas">
+          <button class="summary-card summary-filter-button active" type="button" data-registration-summary-filter="all"><span>Total</span><strong id="registrationsTotalCount">0</strong><small>Mostrar todas</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-registration-summary-filter="waiting"><span>A la espera de sesión</span><strong id="registrationsWaitingCount">0</strong><small>Pendientes / confirmadas</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-registration-summary-filter="attended"><span>Realizadas</span><strong id="registrationsAttendedCount">0</strong><small>Asistencia confirmada</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-registration-summary-filter="review"><span>Requieren revisión</span><strong id="registrationsReviewCount">0</strong><small>Incidencias</small></button>
+        </section>
+
         <section class="card sessions-card" aria-labelledby="registrationsTitle">
           <div class="card-heading sessions-heading">
             <div>
@@ -181,6 +188,14 @@
             </div>
             <button id="refreshRegistrationsButton" class="button secondary small" type="button">Actualizar</button>
           </div>
+          <div class="filter-toolbar registration-filter-toolbar" aria-label="Filtros de personas inscritas">
+            <label class="filter-field filter-field-grow"><span>Persona</span><input id="registrationSearch" type="search" placeholder="Buscar por nombre…" autocomplete="off"></label>
+            <label class="filter-field"><span>Día de la sesión</span><input id="registrationDateFilter" type="date"></label>
+            <label class="filter-field"><span>Tipo</span><select id="registrationPhaseFilter"><option value="all">Inicial y final</option><option value="initial">Inicial</option><option value="final">Final</option></select></label>
+            <label class="filter-field"><span>Estado</span><select id="registrationStatusFilter"><option value="all">Todos</option><option value="waiting">A la espera de sesión</option><option value="attended">Realizada</option><option value="absent">No asistió</option><option value="review">Requiere revisión</option><option value="cancelled">Cancelada</option></select></label>
+            <button id="clearRegistrationFilters" class="button secondary small filter-clear-button" type="button">Limpiar filtros</button>
+          </div>
+          <div id="registrationsFilterResult" class="filter-result" aria-live="polite"></div>
           <div id="registrationsLoading" class="empty-state">Cargando inscripciones…</div>
           <div id="registrationsEmpty" class="empty-state" hidden>No hay inscripciones realizadas por este ayuntamiento.</div>
           <div id="registrationsList" class="registration-list" hidden></div>
@@ -246,6 +261,15 @@
               <p id="documentsDescription">Después de finalizar la sesión, genera el listado con todas las personas cuya asistencia esté confirmada.</p>
             </div>
             <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+          <div class="document-filter-panel">
+            <div id="documentQuickFilters" class="quick-filter-row" role="group" aria-label="Filtros rápidos de Anexos I"></div>
+            <div class="filter-toolbar document-filter-toolbar">
+              <label class="filter-field"><span>Tipo de sesión</span><select id="documentPhaseFilter"><option value="all">Inicial y final</option><option value="initial">Inicial</option><option value="final">Final</option></select></label>
+              <label class="filter-field"><span>Día de la sesión</span><input id="documentDateFilter" type="date"></label>
+              <button id="clearDocumentFilters" class="button secondary small filter-clear-button" type="button">Limpiar filtros</button>
+            </div>
+            <div id="documentsFilterResult" class="filter-result" aria-live="polite"></div>
           </div>
           <div id="documentsLoading" class="empty-state">Cargando documentación…</div>
           <div id="documentsEmpty" class="empty-state" hidden>No hay sesiones con inscripciones disponibles.</div>
@@ -488,6 +512,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260812-personas-inscritas-v1-7-4-3"></script>
+  <script src="./app.js?v=20260812-filtros-v1-8-1"></script>
 </body>
 </html>

@@ -29,6 +29,16 @@
     sessionCount: document.querySelector("#sessionCount"),
     initialCount: document.querySelector("#initialCount"),
     finalCount: document.querySelector("#finalCount"),
+    registrationsTotalCount: document.querySelector("#registrationsTotalCount"),
+    registrationsWaitingCount: document.querySelector("#registrationsWaitingCount"),
+    registrationsAttendedCount: document.querySelector("#registrationsAttendedCount"),
+    registrationsReviewCount: document.querySelector("#registrationsReviewCount"),
+    registrationSearch: document.querySelector("#registrationSearch"),
+    registrationDateFilter: document.querySelector("#registrationDateFilter"),
+    registrationPhaseFilter: document.querySelector("#registrationPhaseFilter"),
+    registrationStatusFilter: document.querySelector("#registrationStatusFilter"),
+    clearRegistrationFilters: document.querySelector("#clearRegistrationFilters"),
+    registrationsFilterResult: document.querySelector("#registrationsFilterResult"),
     registrationTabCount: document.querySelector("#registrationTabCount"),
     incidentMenuCount: document.querySelector("#incidentMenuCount"),
     incidentTotalCount: document.querySelector("#incidentTotalCount"),
@@ -97,6 +107,11 @@
     documentsLoading: document.querySelector("#documentsLoading"),
     documentsEmpty: document.querySelector("#documentsEmpty"),
     documentsList: document.querySelector("#documentsList"),
+    documentQuickFilters: document.querySelector("#documentQuickFilters"),
+    documentPhaseFilter: document.querySelector("#documentPhaseFilter"),
+    documentDateFilter: document.querySelector("#documentDateFilter"),
+    clearDocumentFilters: document.querySelector("#clearDocumentFilters"),
+    documentsFilterResult: document.querySelector("#documentsFilterResult"),
     documentUploadDialog: document.querySelector("#documentUploadDialog"),
     documentUploadForm: document.querySelector("#documentUploadForm"),
     documentUploadNotice: document.querySelector("#documentUploadNotice"),
@@ -136,6 +151,9 @@
   let annexDocumentDownloadRequests = [];
   let documentViewMode = "create";
   let incidentFilter = "all";
+  let sessionSummaryFilter = "all";
+  let registrationSummaryFilter = "all";
+  let documentQuickFilter = "all";
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -148,6 +166,166 @@
     target.hidden = true;
     target.textContent = "";
     target.className = "notice";
+  }
+
+  function normalizeSearchText(value) {
+    return String(value ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function localToday() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  function updateSummaryButtons(selector, activeValue, dataKey) {
+    document.querySelectorAll(selector).forEach((button) => {
+      button.classList.toggle("active", button.dataset[dataKey] === activeValue);
+    });
+  }
+
+  function registrationNeedsReview(registration) {
+    return registration.sync_status === "error"
+      || registration.status === "incident"
+      || Boolean(registration.incident_message);
+  }
+
+  function registrationIsWaiting(registration) {
+    const sessionDate = registration.session?.session_date || "";
+    return ["pending", "confirmed"].includes(registration.status)
+      && sessionDate >= localToday();
+  }
+
+  function registrationMatchesStatus(registration, filter) {
+    if (filter === "all") return true;
+    if (filter === "waiting") return registrationIsWaiting(registration);
+    if (filter === "attended") return registration.status === "attended";
+    if (filter === "absent") return registration.status === "absent";
+    if (filter === "cancelled") return registration.status === "cancelled";
+    if (filter === "review") return registrationNeedsReview(registration);
+    return true;
+  }
+
+  function renderSessions() {
+    const visible = sessions.filter((session) =>
+      sessionSummaryFilter === "all" || session.session_type === sessionSummaryFilter
+    );
+    updateSummaryButtons("[data-session-summary-filter]", sessionSummaryFilter, "sessionSummaryFilter");
+    elements.sessionsEmpty.hidden = visible.length > 0;
+    elements.sessionsGrid.hidden = visible.length === 0;
+    elements.sessionsEmpty.textContent = sessions.length === 0
+      ? "No hay sesiones disponibles actualmente."
+      : "No hay sesiones que coincidan con este filtro.";
+    elements.sessionsGrid.innerHTML = visible.map(sessionCard).join("");
+  }
+
+  function updateRegistrationSummary() {
+    const waiting = registrations.filter(registrationIsWaiting).length;
+    const attended = registrations.filter((item) => item.status === "attended").length;
+    const review = registrations.filter(registrationNeedsReview).length;
+    elements.registrationsTotalCount.textContent = String(registrations.length);
+    elements.registrationsWaitingCount.textContent = String(waiting);
+    elements.registrationsAttendedCount.textContent = String(attended);
+    elements.registrationsReviewCount.textContent = String(review);
+  }
+
+  function renderRegistrations() {
+    updateRegistrationSummary();
+    const search = normalizeSearchText(elements.registrationSearch?.value);
+    const date = elements.registrationDateFilter?.value || "";
+    const phase = elements.registrationPhaseFilter?.value || "all";
+    const selectStatus = elements.registrationStatusFilter?.value || "all";
+    const effectiveStatus = selectStatus !== "all" ? selectStatus : registrationSummaryFilter;
+
+    const visible = registrations.filter((registration) => {
+      const participant = registration.participant ?? {};
+      const session = registration.session ?? {};
+      if (search && !normalizeSearchText(participant.display_name).includes(search)) return false;
+      if (date && session.session_date !== date) return false;
+      if (phase !== "all" && registration.phase !== phase) return false;
+      if (!registrationMatchesStatus(registration, effectiveStatus)) return false;
+      return true;
+    });
+
+    updateSummaryButtons("[data-registration-summary-filter]", registrationSummaryFilter, "registrationSummaryFilter");
+    elements.registrationsFilterResult.textContent = `${visible.length} de ${registrations.length} inscripciones`;
+    elements.registrationsEmpty.hidden = visible.length > 0;
+    elements.registrationsList.hidden = visible.length === 0;
+    elements.registrationsEmpty.textContent = registrations.length === 0
+      ? "No hay inscripciones realizadas por este ayuntamiento."
+      : "No hay inscripciones que coincidan con los filtros seleccionados.";
+    elements.registrationsList.innerHTML = visible.map(registrationItem).join("");
+  }
+
+  function documentFilterOptions() {
+    if (documentViewMode === "create") {
+      return [
+        ["all", "Todas"],
+        ["ready", "Listas para crear"],
+        ["attendance", "Pendientes de asistencia"],
+        ["submitted", "Ya generadas / remitidas"],
+      ];
+    }
+    if (documentViewMode === "upload") {
+      return [
+        ["all", "Todas"],
+        ["ready", "Listas para subir"],
+        ["review", "En revisión DP"],
+        ["incident", "Con incidencia"],
+        ["validated", "Validadas"],
+      ];
+    }
+    return [
+      ["all", "Todas"],
+      ["available", "Disponibles para descargar"],
+      ["pending", "Pendientes de validación"],
+      ["missing", "Sin Anexo I firmado"],
+    ];
+  }
+
+  function renderDocumentQuickFilters() {
+    const options = documentFilterOptions();
+    if (!options.some(([key]) => key === documentQuickFilter)) documentQuickFilter = "all";
+    elements.documentQuickFilters.innerHTML = options.map(([key, label]) =>
+      `<button class="quick-filter-button ${key === documentQuickFilter ? "active" : ""}" type="button" data-document-quick-filter="${key}">${escapeHtml(label)}</button>`
+    ).join("");
+  }
+
+  function documentMatchesQuickFilter(group, filter) {
+    if (filter === "all") return true;
+    const document = latestDocumentForSession(group.session.id);
+    const generation = latestGenerationForSession(group.session.id);
+    const finished = sessionHasFinished(group.session);
+    const attendanceClosed = group.pendingAttendance === 0;
+    const canCreate = finished && attendanceClosed && group.attended > 0;
+    const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
+    const correction = document?.validation_status === "incident" || document?.sync_status === "error";
+    const canUpload = correction || (finished && attendanceClosed && group.attended > 0 && downloadedForSignatures && !document);
+
+    if (documentViewMode === "create") {
+      if (filter === "ready") return !document && canCreate;
+      if (filter === "attendance") return !document && finished && !attendanceClosed;
+      if (filter === "submitted") return Boolean(document) || ["ready", "downloaded"].includes(generation?.status);
+    } else if (documentViewMode === "upload") {
+      if (filter === "ready") return canUpload;
+      if (filter === "review") return document?.validation_status === "pending_validation";
+      if (filter === "incident") return correction;
+      if (filter === "validated") return document?.validation_status === "validated";
+    } else {
+      if (filter === "available") return document?.validation_status === "validated";
+      if (filter === "pending") return Boolean(document) && document.validation_status !== "validated";
+      if (filter === "missing") return !document;
+    }
+    return true;
   }
 
   function configurationIsValid() {
@@ -208,6 +386,10 @@
     elements.documentsTitle.textContent = copy.title;
     elements.documentsDescription.textContent = copy.description;
     elements.documentsEmpty.textContent = copy.empty;
+    documentQuickFilter = "all";
+    if (elements.documentPhaseFilter) elements.documentPhaseFilter.value = "all";
+    if (elements.documentDateFilter) elements.documentDateFilter.value = "";
+    renderDocumentQuickFilters();
   }
 
   function openDocumentSection(mode) {
@@ -901,10 +1083,24 @@
 
   function renderDocuments() {
     const groups = documentGroups();
-    elements.documentsEmpty.hidden = groups.length > 0;
-    elements.documentsList.hidden = groups.length === 0;
-    if (groups.length > 0) {
-      elements.documentsList.innerHTML = groups.map(documentSessionItem).join("");
+    const phase = elements.documentPhaseFilter?.value || "all";
+    const date = elements.documentDateFilter?.value || "";
+    const visible = groups.filter((group) => {
+      if (phase !== "all" && group.session.session_type !== phase) return false;
+      if (date && group.session.session_date !== date) return false;
+      return documentMatchesQuickFilter(group, documentQuickFilter);
+    });
+    renderDocumentQuickFilters();
+    elements.documentsFilterResult.textContent = `${visible.length} de ${groups.length} sesiones`;
+    elements.documentsEmpty.hidden = visible.length > 0;
+    elements.documentsList.hidden = visible.length === 0;
+    if (visible.length > 0) {
+      elements.documentsList.innerHTML = visible.map(documentSessionItem).join("");
+    } else {
+      elements.documentsList.innerHTML = "";
+      elements.documentsEmpty.textContent = groups.length === 0
+        ? "No hay sesiones con inscripciones disponibles."
+        : "No hay sesiones que coincidan con los filtros seleccionados.";
     }
   }
 
@@ -925,7 +1121,7 @@
             : ""
         )
         || (registration.sync_status === "error"
-          ? "La inscripción no ha podido incorporarse y requiere revisión."
+          ? "La inscripción requiere revisión."
           : "");
 
       if (registrationHasIncident || registration.incident_message) {
@@ -1618,12 +1814,7 @@
         );
       elements.registrationTabCount.textContent = String(registrations.length);
       renderIncidents();
-      if (registrations.length === 0) {
-        elements.registrationsEmpty.hidden = false;
-        return;
-      }
-      elements.registrationsList.innerHTML = registrations.map(registrationItem).join("");
-      elements.registrationsList.hidden = false;
+      renderRegistrations();
     } finally {
       elements.registrationsLoading.hidden = true;
       elements.refreshRegistrationsButton.disabled = false;
@@ -1650,12 +1841,7 @@
       elements.sessionCount.textContent = String(sessions.length);
       elements.initialCount.textContent = String(sessions.filter((item) => item.session_type === "initial").length);
       elements.finalCount.textContent = String(sessions.filter((item) => item.session_type === "final").length);
-      if (sessions.length === 0) {
-        elements.sessionsEmpty.hidden = false;
-        return;
-      }
-      elements.sessionsGrid.innerHTML = sessions.map(sessionCard).join("");
-      elements.sessionsGrid.hidden = false;
+      renderSessions();
     } finally {
       elements.sessionsLoading.hidden = true;
       elements.refreshButton.disabled = false;
@@ -2065,6 +2251,48 @@
       clearNotice();
       try { await reloadPortalData(); showNotice("success", "Las inscripciones se han actualizado."); }
       catch (error) { showNotice("error", `No se pudieron actualizar las inscripciones: ${error.message}`); }
+    });
+    document.querySelectorAll("[data-session-summary-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        sessionSummaryFilter = button.dataset.sessionSummaryFilter || "all";
+        renderSessions();
+      });
+    });
+    document.querySelectorAll("[data-registration-summary-filter]").forEach((button) => {
+      button.addEventListener("click", () => {
+        registrationSummaryFilter = button.dataset.registrationSummaryFilter || "all";
+        elements.registrationStatusFilter.value = "all";
+        renderRegistrations();
+      });
+    });
+    elements.registrationSearch.addEventListener("input", renderRegistrations);
+    elements.registrationDateFilter.addEventListener("change", renderRegistrations);
+    elements.registrationPhaseFilter.addEventListener("change", renderRegistrations);
+    elements.registrationStatusFilter.addEventListener("change", () => {
+      registrationSummaryFilter = "all";
+      renderRegistrations();
+    });
+    elements.clearRegistrationFilters.addEventListener("click", () => {
+      elements.registrationSearch.value = "";
+      elements.registrationDateFilter.value = "";
+      elements.registrationPhaseFilter.value = "all";
+      elements.registrationStatusFilter.value = "all";
+      registrationSummaryFilter = "all";
+      renderRegistrations();
+    });
+    elements.documentQuickFilters.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-document-quick-filter]");
+      if (!button) return;
+      documentQuickFilter = button.dataset.documentQuickFilter || "all";
+      renderDocuments();
+    });
+    elements.documentPhaseFilter.addEventListener("change", renderDocuments);
+    elements.documentDateFilter.addEventListener("change", renderDocuments);
+    elements.clearDocumentFilters.addEventListener("click", () => {
+      documentQuickFilter = "all";
+      elements.documentPhaseFilter.value = "all";
+      elements.documentDateFilter.value = "";
+      renderDocuments();
     });
     elements.refreshDocumentsButton.addEventListener("click", async () => {
       clearNotice();
