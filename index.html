@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260812-filtros-v1-8-1">
+  <link rel="stylesheet" href="./styles.css?v=20260812-v1-8-1-2">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -161,6 +161,12 @@
             </div>
             <button id="refreshButton" class="button secondary small" type="button">Actualizar</button>
           </div>
+          <div class="filter-toolbar session-date-filter-toolbar" aria-label="Filtrar sesiones por fechas">
+            <label class="filter-field"><span>Desde</span><input id="sessionDateFromFilter" type="date"></label>
+            <label class="filter-field"><span>Hasta</span><input id="sessionDateToFilter" type="date"></label>
+            <button id="clearSessionFilters" class="button secondary small filter-clear-button" type="button">Limpiar fechas</button>
+          </div>
+          <div id="sessionsFilterResult" class="filter-result" aria-live="polite"></div>
           <div id="sessionsLoading" class="empty-state">Cargando sesiones…</div>
           <div id="sessionsEmpty" class="empty-state" hidden>No hay sesiones disponibles actualmente.</div>
           <div id="sessionsGrid" class="sessions-grid" hidden></div>
@@ -512,6 +518,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260812-filtros-v1-8-1"></script>
+  <script src="./app.js?v=20260812-v1-8-1-2"></script>
 </body>
 </html>

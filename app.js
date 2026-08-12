@@ -29,6 +29,10 @@
     sessionCount: document.querySelector("#sessionCount"),
     initialCount: document.querySelector("#initialCount"),
     finalCount: document.querySelector("#finalCount"),
+    sessionDateFromFilter: document.querySelector("#sessionDateFromFilter"),
+    sessionDateToFilter: document.querySelector("#sessionDateToFilter"),
+    clearSessionFilters: document.querySelector("#clearSessionFilters"),
+    sessionsFilterResult: document.querySelector("#sessionsFilterResult"),
     registrationsTotalCount: document.querySelector("#registrationsTotalCount"),
     registrationsWaitingCount: document.querySelector("#registrationsWaitingCount"),
     registrationsAttendedCount: document.querySelector("#registrationsAttendedCount"),
@@ -216,15 +220,21 @@
   }
 
   function renderSessions() {
-    const visible = sessions.filter((session) =>
-      sessionSummaryFilter === "all" || session.session_type === sessionSummaryFilter
-    );
+    const dateFrom = elements.sessionDateFromFilter?.value || "";
+    const dateTo = elements.sessionDateToFilter?.value || "";
+    const visible = sessions.filter((session) => {
+      if (sessionSummaryFilter !== "all" && session.session_type !== sessionSummaryFilter) return false;
+      if (dateFrom && session.session_date < dateFrom) return false;
+      if (dateTo && session.session_date > dateTo) return false;
+      return true;
+    });
     updateSummaryButtons("[data-session-summary-filter]", sessionSummaryFilter, "sessionSummaryFilter");
+    if (elements.sessionsFilterResult) elements.sessionsFilterResult.textContent = `${visible.length} de ${sessions.length} sesiones`;
     elements.sessionsEmpty.hidden = visible.length > 0;
     elements.sessionsGrid.hidden = visible.length === 0;
     elements.sessionsEmpty.textContent = sessions.length === 0
       ? "No hay sesiones disponibles actualmente."
-      : "No hay sesiones que coincidan con este filtro.";
+      : "No hay sesiones que coincidan con los filtros seleccionados.";
     elements.sessionsGrid.innerHTML = visible.map(sessionCard).join("");
   }
 
@@ -711,10 +721,11 @@
 
     return `
       <article class="session-card">
-        <span class="badge ${isInitial ? "initial" : "final"}">${phaseLabel}</span>
+        <div class="session-primary-heading ${isInitial ? "initial" : "final"}">
+          <strong>${phaseLabel} · ${escapeHtml(formatDate(session.session_date))}</strong>
+        </div>
         <h3>${escapeHtml(session.title)}</h3>
         <dl class="session-meta">
-          <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(session.session_date))}</dd></div>
           <div><dt>Horario</dt><dd>${escapeHtml(formatTime(session.start_time))}–${escapeHtml(formatTime(session.end_time))}</dd></div>
           <div><dt>Personal formador</dt><dd>${escapeHtml(session.trainer || "Pendiente")}</dd></div>
           <div><dt>Plazas ordinarias libres</dt><dd>${available}</dd></div>
@@ -2257,6 +2268,14 @@
         sessionSummaryFilter = button.dataset.sessionSummaryFilter || "all";
         renderSessions();
       });
+    });
+    elements.sessionDateFromFilter?.addEventListener("change", renderSessions);
+    elements.sessionDateToFilter?.addEventListener("change", renderSessions);
+    elements.clearSessionFilters?.addEventListener("click", () => {
+      elements.sessionDateFromFilter.value = "";
+      elements.sessionDateToFilter.value = "";
+      sessionSummaryFilter = "all";
+      renderSessions();
     });
     document.querySelectorAll("[data-registration-summary-filter]").forEach((button) => {
       button.addEventListener("click", () => {
