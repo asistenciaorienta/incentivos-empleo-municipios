@@ -502,7 +502,7 @@
   }
 
   function syncLabel(status) {
-    return ({ pending: "Pendiente de incorporar al SAE", processing: "Procesando", synced: "Incorporada al SAE", error: "Error de sincronización" })[status] ?? status;
+    return ({ pending: "Pendiente de incorporar al SAE", processing: "Procesando", synced: "Incorporada al SAE", error: "Requiere revisión" })[status] ?? status;
   }
 
   function sessionCard(session) {
@@ -925,7 +925,7 @@
             : ""
         )
         || (registration.sync_status === "error"
-          ? "Error de sincronización de la inscripción."
+          ? "La inscripción no ha podido incorporarse y requiere revisión."
           : "");
 
       if (registrationHasIncident || registration.incident_message) {
