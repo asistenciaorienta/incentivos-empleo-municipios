@@ -22,6 +22,7 @@
     email: document.querySelector("#email"),
     password: document.querySelector("#password"),
     logoutButton: document.querySelector("#logoutButton"),
+    globalBackToMenu: document.querySelector("#globalBackToMenu"),
     refreshButton: document.querySelector("#refreshButton"),
     refreshRegistrationsButton: document.querySelector("#refreshRegistrationsButton"),
     municipalityName: document.querySelector("#municipalityName"),
@@ -517,6 +518,9 @@
     document.querySelectorAll(".portal-section").forEach((section) => {
       section.hidden = section.id !== sectionId;
     });
+    if (elements.globalBackToMenu) {
+      elements.globalBackToMenu.hidden = sectionId === "dashboardSection";
+    }
   }
 
   function openDashboard() {

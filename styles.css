@@ -1986,3 +1986,26 @@ select:focus {
     grid-column: auto;
   }
 }
+
+
+/* v1.9.6 · Volver al menú principal en la cabecera */
+.header-back-button {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.portal-toolbar {
+  gap: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .portal-toolbar {
+    align-items: stretch;
+  }
+
+  .header-back-button {
+    margin-left: 0;
+    width: 100%;
+    white-space: normal;
+  }
+}
