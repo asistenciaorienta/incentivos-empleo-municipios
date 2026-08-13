@@ -654,9 +654,9 @@
     elements.documentsSection.dataset.mode = documentViewMode;
     const copy = {
       create: {
-        heading: "Creación de Anexos I",
+        heading: "Generación de Anexos I",
         kicker: "Preparación para firmas",
-        title: "Crear Anexo I",
+        title: "Generar Anexo I",
         description: "Después de finalizar la sesión y cerrar la asistencia, genera el Anexo I con todas las personas que hayan asistido y descárgalo para recoger sus firmas manuscritas.",
         empty: "No hay sesiones con inscripciones disponibles para generar el Anexo I."
       },
