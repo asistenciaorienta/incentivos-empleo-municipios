@@ -72,7 +72,7 @@ button:disabled {
 }
 
 .header-inner {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1320px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 0.9rem 0;
   display: flex;
@@ -120,7 +120,7 @@ button:disabled {
 }
 
 .page-shell {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1320px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 2rem 0 3rem;
 }
@@ -1943,10 +1943,8 @@ select:focus {
 
 /* v1.9.5 · 01 Sesiones / 02 Incidencias / 03 Anexos */
 .management-grid-v195 {
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  grid-template-areas:
-    "sessions annex"
-    "incidents annex";
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas: "sessions incidents annex";
   align-items: stretch;
 }
 
@@ -1971,7 +1969,7 @@ select:focus {
   height: 100%;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1050px) {
   .management-grid-v195 {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -2244,4 +2242,23 @@ select:focus {
   .annex-participant-readonly,
   .annex-participant-absence-editor { grid-template-columns: 1fr; }
   .annex-participant-readonly > .badge { justify-self: start; }
+}
+
+
+/* v1.10.4 · Menú municipal en tres columnas e Iniciales/Finales sin contadores */
+.session-type-button > span {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+@media (min-width: 1051px) {
+  .management-grid-v195 .management-area {
+    padding: 1.2rem;
+  }
+  .management-grid-v195 .management-area h3 {
+    font-size: clamp(1.15rem, 1.45vw, 1.42rem);
+  }
+  .management-grid-v195 .management-action {
+    padding: .82rem;
+  }
 }

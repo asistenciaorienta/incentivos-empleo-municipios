@@ -34,8 +34,6 @@
     municipalityName: document.querySelector("#municipalityName"),
     userSummary: document.querySelector("#userSummary"),
     sessionCount: document.querySelector("#sessionCount"),
-    initialCount: document.querySelector("#initialCount"),
-    finalCount: document.querySelector("#finalCount"),
     sessionSearch: document.querySelector("#sessionSearch"),
     sessionsTitle: document.querySelector("#sessionsTitle"),
     sessionBrowserPanel: document.querySelector("#sessionBrowserPanel"),
@@ -989,11 +987,12 @@
     const isInitial = session.session_type === "initial";
     const phaseLabel = isInitial ? "Inicial" : "Final";
     const available = Number(session.regular_available ?? 0);
+    const isFull = available <= 0;
     const sessionRegistrations = registrationsForSession(session.id);
     const participantCount = sessionRegistrations.length;
-    const canRegisterInitial = isInitial && session.registration_open && available > 0;
-    const canRegisterFinal = !isInitial && session.registration_open && available > 0 && eligibleParticipants.length > 0;
-    let actionLabel = "Inscripción cerrada";
+    const canRegisterInitial = isInitial && session.registration_open && !isFull;
+    const canRegisterFinal = !isInitial && session.registration_open && !isFull && eligibleParticipants.length > 0;
+    let actionLabel = isFull ? "Sesión completa" : "Inscripción cerrada";
     let actionClass = "";
     let registrationNote = "";
 
@@ -1003,9 +1002,11 @@
     } else if (canRegisterFinal) {
       actionLabel = "Inscribir";
       actionClass = "js-register-final";
-    } else if (!isInitial && session.registration_open && eligibleParticipants.length === 0) {
+    } else if (!isFull && !isInitial && session.registration_open && eligibleParticipants.length === 0) {
       actionLabel = "Sin personas disponibles";
       registrationNote = "La inscripción final se habilita para las personas cuya sesión inicial conste como realizada.";
+    } else if (isFull) {
+      registrationNote = "La sesión está completa. Puedes consultar las personas participantes y copiar el enlace, pero no realizar nuevas inscripciones.";
     }
 
     const meetingUrl = String(session.meeting_url || "").trim();
@@ -1025,8 +1026,8 @@
             <h3>${escapeHtml(session.title)}</h3>
             <p>${escapeHtml(formatTime(session.start_time))}–${escapeHtml(formatTime(session.end_time))} · ${escapeHtml(session.trainer || "Personal formador pendiente")}</p>
             <div class="session-browser-meta">
-              <span class="badge ${session.registration_open ? "open" : "closed"}">${session.registration_open ? "Inscripción abierta" : "Inscripción cerrada"}</span>
-              <span>${available} plazas disponibles</span>
+              <span class="badge ${session.registration_open && !isFull ? "open" : "closed"}">${isFull ? "Sesión completa" : (session.registration_open ? "Inscripción abierta" : "Inscripción cerrada")}</span>
+              <span>${isFull ? "Sin plazas disponibles" : `${available} plazas disponibles`}</span>
               <span>${participantCount} participante${participantCount === 1 ? "" : "s"}</span>
             </div>
           </div>
@@ -1055,7 +1056,7 @@
     const participant = registration.participant ?? {};
     const session = registration.session ?? {};
     const transferred = registration.status === "cancelled" && Boolean(registration.transferred_to_session_id);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const canChange = ["pending", "confirmed"].includes(registration.status)
       && registration.sync_status !== "processing"
       && session.session_date >= today
@@ -1827,7 +1828,7 @@
       return;
     }
     if (!activeEncryptionKey) {
-      showNotice("error", "No está disponible la clave pública de cifrado.", elements.annexGenerationNotice);
+      showNotice("error", "No se puede preparar esta operación de forma segura en este momento.", elements.annexGenerationNotice);
       return;
     }
 
@@ -1850,7 +1851,7 @@
     }
 
     elements.confirmAnnexGenerationInfo.disabled = true;
-    elements.confirmAnnexGenerationInfo.textContent = "Preparando cifrado…";
+    elements.confirmAnnexGenerationInfo.textContent = "Preparando PDF…";
     elements.submitAnnexGeneration.disabled = true;
 
     try {
@@ -1946,13 +1947,13 @@
       await loadDocuments();
       showNotice("success", "Anexo I descargado. Imprímelo para recoger las firmas manuscritas de las personas asistentes y, después, obtén la firma digital de la persona responsable del ayuntamiento.");
     } catch (error) {
-      showNotice("error", `No se pudo descargar y descifrar el Anexo I: ${error.message}`);
+      showNotice("error", `No se pudo descargar y procesar el Anexo I: ${error.message}`);
     }
   }
 
   async function prepareAnnexDocumentDownload(documentId, sessionId, variant) {
     if (!activeEncryptionKey) {
-      showNotice("error", "No está disponible la clave pública de cifrado.");
+      showNotice("error", "No se puede preparar esta operación de forma segura en este momento.");
       return;
     }
     clearNotice();
@@ -1972,7 +1973,7 @@
         key.rawKey,
       );
       await loadDocuments();
-      showNotice("success", "El SAE está preparando la descarga cifrada. Pulsa Actualizar dentro de aproximadamente un minuto.");
+      showNotice("success", "El SAE está preparando la descarga. Pulsa Actualizar dentro de aproximadamente un minuto.");
     } catch (error) {
       showNotice("error", `No se pudo preparar la descarga: ${error.message}`);
     }
@@ -2047,7 +2048,7 @@
       await loadDocuments();
       showNotice("success", "PDF descargado. Conserva el archivo electrónico original para poder verificar sus firmas digitales; el portal no ofrece opción de impresión para estas versiones firmadas.");
     } catch (error) {
-      showNotice("error", `No se pudo descargar y descifrar el PDF: ${error.message}`);
+      showNotice("error", `No se pudo descargar y procesar el PDF: ${error.message}`);
     }
   }
 
@@ -2077,7 +2078,7 @@
     elements.submitDocumentUpload.textContent = "Comprobando PDF…";
 
     try {
-      if (!activeEncryptionKey) throw new Error("No está disponible la clave pública de cifrado.");
+      if (!activeEncryptionKey) throw new Error("No se puede preparar esta operación de forma segura en este momento.");
       const pdf = await validateAndReadPdf(file);
 
       const { data: beginData, error: beginError } = await client.rpc("begin_signed_annex_upload", {
@@ -2090,7 +2091,7 @@
       reservation = Array.isArray(beginData) ? beginData[0] : beginData;
       if (!reservation?.document_id) throw new Error("No se pudo reservar el envío documental.");
 
-      elements.submitDocumentUpload.textContent = "Cifrando PDF…";
+      elements.submitDocumentUpload.textContent = "Preparando PDF…";
       const encrypted = await encryptSignedAnnex(
         pdf.buffer,
         reservation.document_id,
@@ -2098,7 +2099,7 @@
         activeEncryptionKey.public_key_pem
       );
 
-      elements.submitDocumentUpload.textContent = "Enviando cifrado…";
+      elements.submitDocumentUpload.textContent = "Enviando…";
       const { error: uploadError } = await client.storage
         .from(reservation.storage_bucket)
         .upload(
@@ -2116,11 +2117,11 @@
         p_payload_version: 1,
       });
       if (completeError) throw new Error(completeError.message);
-      if (!completeData) throw new Error("El envío cifrado no pudo confirmarse.");
+      if (!completeData) throw new Error("El envío no pudo confirmarse.");
 
       closeDocumentUploadDialog();
       await reloadPortalData();
-      showNotice("success", "El Anexo I firmado se ha cifrado y enviado al SAE.");
+      showNotice("success", "El Anexo I firmado se ha enviado al SAE.");
       openDocumentSection("upload");
     } catch (error) {
       if (reservation?.storage_bucket && reservation?.storage_path) {
@@ -2132,7 +2133,7 @@
       showNotice("error", error.message || "No se pudo enviar el Anexo I firmado.", elements.documentUploadNotice);
     } finally {
       elements.submitDocumentUpload.disabled = false;
-      elements.submitDocumentUpload.textContent = "Cifrar y enviar";
+      elements.submitDocumentUpload.textContent = "Enviar Anexo I";
     }
   }
 
@@ -2264,7 +2265,7 @@
     elements.sessionsGrid.hidden = true;
     elements.refreshButton.disabled = true;
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localToday();
       const { data, error } = await client
         .from("sessions")
         .select(`id, session_type, title, session_date, start_time, end_time, trainer, meeting_url, capacity_regular, regular_available, maximum_available, registration_open, published, status`)
@@ -2274,10 +2275,8 @@
         .order("session_date", { ascending: true })
         .order("start_time", { ascending: true });
       if (error) throw new Error(error.message);
-      sessions = Array.isArray(data) ? data : [];
+      sessions = Array.isArray(data) ? data.filter((session) => !sessionHasFinished(session)) : [];
       elements.sessionCount.textContent = String(sessions.length);
-      elements.initialCount.textContent = String(sessions.filter((item) => item.session_type === "initial").length);
-      elements.finalCount.textContent = String(sessions.filter((item) => item.session_type === "final").length);
       renderSessions();
     } finally {
       elements.sessionsLoading.hidden = true;
@@ -2371,12 +2370,12 @@
       return;
     }
     if (!activeEncryptionKey) {
-      showNotice("error", "No está disponible la clave pública de cifrado.", elements.registrationNotice);
+      showNotice("error", "No se puede preparar esta operación de forma segura en este momento.", elements.registrationNotice);
       return;
     }
 
     elements.submitInitialRegistration.disabled = true;
-    elements.submitInitialRegistration.textContent = "Cifrando…";
+    elements.submitInitialRegistration.textContent = "Preparando inscripción…";
 
     try {
       const identity = {
@@ -2407,15 +2406,15 @@
       if (error) throw new Error(error.message);
       closeInitialDialog();
       await reloadPortalData();
-      showNotice("success", "La persona ha quedado inscrita. Los datos completos se han enviado cifrados.");
+      showNotice("success", "La persona ha quedado inscrita correctamente.");
       setActiveSection("sessionsSection");
     } catch (error) {
       const message = String(error?.message ?? "No se pudo completar la inscripción.");
-      const friendly = message.includes("capacidad ordinaria") ? "La sesión acaba de completar sus plazas ordinarias." : message.includes("duplicate key") ? "Esta persona ya tiene una inscripción activa en esa fase." : message;
+      const friendly = message.includes("capacidad ordinaria") ? "La sesión está completa. No se pueden realizar nuevas inscripciones." : message.includes("duplicate key") ? "Esta persona ya tiene una inscripción activa en esa fase." : message;
       showNotice("error", friendly, elements.registrationNotice);
     } finally {
       elements.submitInitialRegistration.disabled = false;
-      elements.submitInitialRegistration.textContent = "Cifrar e inscribir";
+      elements.submitInitialRegistration.textContent = "Inscribir";
     }
   }
 
@@ -2443,10 +2442,11 @@
       setActiveSection("sessionsSection");
     } catch (error) {
       const message = String(error?.message || "No se pudo completar la inscripción final.");
-      const friendly = message.includes("session_registrations_one_active_phase")
-        || message.includes("duplicate key")
-        ? "Esta persona ya tiene una inscripción activa en una sesión final. Pulsa Actualizar para refrescar la lista."
-        : message;
+      const friendly = message.includes("capacidad ordinaria")
+        ? "La sesión está completa. No se pueden realizar nuevas inscripciones."
+        : message.includes("session_registrations_one_active_phase") || message.includes("duplicate key")
+          ? "Esta persona ya tiene una inscripción activa en una sesión final. Pulsa Actualizar para refrescar la lista."
+          : message;
       showNotice("error", friendly, elements.finalRegistrationNotice);
     } finally {
       elements.submitFinalRegistration.disabled = false;
@@ -2483,7 +2483,7 @@
     const registration = registrations.find((item) => item.id === registrationId);
     if (!registration) return;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     if (!["pending", "confirmed"].includes(registration.status)) {
       showNotice("warning", "Esta inscripción no puede cambiarse mientras tenga ese estado.");
       return;

@@ -94,7 +94,7 @@
             <div class="management-actions">
               <button class="management-action management-action-featured js-dashboard-action" type="button" data-action="sessions-hub">
                 <span class="management-action-number" aria-hidden="true">1</span>
-                <span><strong>Inscripción / Enlaces</strong><small>Consultar sesiones iniciales o finales, inscribir personas, acceder al enlace y revisar participantes inscritos.</small></span>
+                <span><strong>Inscripción en sesiones / Enlaces</strong><small>Consultar sesiones iniciales o finales, inscribir personas, acceder al enlace y revisar participantes inscritos.</small></span>
                 <span class="management-action-arrow" aria-hidden="true">›</span>
               </button>
             </div>
@@ -153,15 +153,15 @@
       <section id="sessionsSection" class="portal-section" hidden>
         <div class="section-navigation">
           
-          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Inscripción / Enlaces</h2></div>
+          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Inscripción en sesiones / Enlaces</h2></div>
         </div>
 
         <section class="session-type-switch" aria-label="Tipo de sesión">
           <button class="session-type-button" type="button" data-session-type="initial">
-            <span>Inicial</span><strong id="initialCount">0</strong>
+            <span>Iniciales</span>
           </button>
           <button class="session-type-button" type="button" data-session-type="final">
-            <span>Final</span><strong id="finalCount">0</strong>
+            <span>Finales</span>
           </button>
         </section>
         <span id="sessionCount" hidden>0</span>
@@ -374,7 +374,7 @@
 
       <div class="modal-actions">
         <button id="cancelInitialRegistration" class="button secondary" type="button">Cancelar</button>
-        <button id="submitInitialRegistration" class="button primary" type="submit">Cifrar e inscribir</button>
+        <button id="submitInitialRegistration" class="button primary" type="submit">Inscribir</button>
       </div>
     </form>
   </dialog>
@@ -571,12 +571,11 @@
       <div class="privacy-box">
         <p><strong>Antes de subirlo</strong></p>
         <p>El PDF debe contener las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento que da validez a la asistencia.</p>
-        <p><strong>Protección:</strong> el PDF se cifra antes de enviarse al SAE.</p>
         <p class="muted">Tamaño máximo: 12 MB. No incluyas datos personales en el nombre del archivo.</p>
       </div>
       <div class="modal-actions">
         <button id="cancelDocumentUpload" class="button secondary" type="button">Cancelar</button>
-        <button id="submitDocumentUpload" class="button primary" type="submit">Cifrar y enviar</button>
+        <button id="submitDocumentUpload" class="button primary" type="submit">Enviar Anexo I</button>
       </div>
     </form>
   </dialog>
@@ -584,6 +583,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260813-v1-10-3"></script>
+  <script src="./app.js?v=20260813-v1-10-4"></script>
 </body>
 </html>
