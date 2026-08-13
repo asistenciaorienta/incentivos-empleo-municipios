@@ -1939,3 +1939,50 @@ select:focus {
     max-width: none;
   }
 }
+
+
+/* v1.9.5 · 01 Sesiones / 02 Incidencias / 03 Anexos */
+.management-grid-v195 {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-areas:
+    "sessions annex"
+    "incidents annex";
+  align-items: stretch;
+}
+
+.management-grid-v195 .management-area-sessions {
+  grid-area: sessions;
+}
+
+.management-grid-v195 .management-area-incidents {
+  grid-area: incidents;
+  grid-column: auto;
+}
+
+.management-grid-v195 .management-area-annex {
+  grid-area: annex;
+}
+
+.management-grid-v195 .management-area-incidents .management-actions {
+  max-width: none;
+}
+
+.management-grid-v195 .management-area-annex {
+  height: 100%;
+}
+
+@media (max-width: 900px) {
+  .management-grid-v195 {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "sessions"
+      "incidents"
+      "annex";
+  }
+
+  .management-grid-v195 .management-area-incidents,
+  .management-grid-v195 .management-area-annex,
+  .management-grid-v195 .management-area-sessions {
+    grid-column: auto;
+  }
+}
