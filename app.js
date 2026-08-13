@@ -288,14 +288,40 @@
       if (elements.sessionBrowserPanel) elements.sessionBrowserPanel.hidden = true;
       return;
     }
-    const search = normalizeSearchText(elements.sessionSearch?.value);
+
+    const rawSearch = String(elements.sessionSearch?.value ?? "").trim();
+    const search = normalizeSearchText(rawSearch);
     const dateFrom = elements.sessionDateFromFilter?.value || "";
     const dateTo = elements.sessionDateToFilter?.value || "";
+
+    // Si el texto coincide con una persona inscrita, el buscador pasa
+    // automáticamente a modo persona y muestra sus sesiones iniciales y finales.
+    const matchingPersonSessionIds = new Set();
+    if (search) {
+      registrations.forEach((registration) => {
+        if (registration.status === "cancelled") return;
+        const participant = registration.participant ?? {};
+        const personSearchable = normalizeSearchText([
+          participant.display_name,
+          participant.masked_document,
+        ].join(" "));
+        if (personSearchable.includes(search) && registration.session?.id) {
+          matchingPersonSessionIds.add(String(registration.session.id));
+        }
+      });
+    }
+
+    const personSearchActive = matchingPersonSessionIds.size > 0;
     const phaseSessions = sessions.filter((session) => session.session_type === sessionSummaryFilter);
-    const visible = phaseSessions.filter((session) => {
+    const sourceSessions = personSearchActive
+      ? sessions.filter((session) => matchingPersonSessionIds.has(String(session.id)))
+      : phaseSessions;
+
+    const visible = sourceSessions.filter((session) => {
       if (dateFrom && session.session_date < dateFrom) return false;
       if (dateTo && session.session_date > dateTo) return false;
-      if (search) {
+
+      if (search && !personSearchActive) {
         const sessionRegistrations = registrationsForSession(session.id);
         const participantSearchText = sessionRegistrations.flatMap((registration) => {
           const participant = registration.participant ?? {};
@@ -319,18 +345,55 @@
         if (!searchable.includes(search)) return false;
       }
       return true;
-    });
+    }).sort((a, b) =>
+      String(a.session_date).localeCompare(String(b.session_date))
+      || String(a.start_time).localeCompare(String(b.start_time))
+    );
+
     document.querySelectorAll("[data-session-type]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.sessionType === sessionSummaryFilter);
+      button.classList.toggle(
+        "active",
+        personSearchActive || button.dataset.sessionType === sessionSummaryFilter
+      );
     });
-    if (elements.sessionsFilterResult) {
-      elements.sessionsFilterResult.textContent = `${visible.length} de ${phaseSessions.length} sesiones ${sessionSummaryFilter === "initial" ? "iniciales" : "finales"}`;
+
+    if (personSearchActive) {
+      if (elements.sessionsTitle) {
+        elements.sessionsTitle.textContent = "Resultados en sesiones iniciales y finales";
+      }
+      if (elements.sessionsDescription) {
+        elements.sessionsDescription.textContent =
+          `Se muestran todas las sesiones en las que hay una persona inscrita que coincide con «${rawSearch}».`;
+      }
+      if (elements.sessionsFilterResult) {
+        const initialMatches = visible.filter((session) => session.session_type === "initial").length;
+        const finalMatches = visible.filter((session) => session.session_type === "final").length;
+        elements.sessionsFilterResult.textContent =
+          `${visible.length} sesiones encontradas · ${initialMatches} iniciales · ${finalMatches} finales`;
+      }
+    } else {
+      if (elements.sessionsTitle) {
+        elements.sessionsTitle.textContent =
+          sessionSummaryFilter === "initial" ? "Sesiones iniciales" : "Sesiones finales";
+      }
+      if (elements.sessionsDescription) {
+        elements.sessionsDescription.textContent = sessionSummaryFilter === "initial"
+          ? "Consulta las sesiones iniciales, inscribe personas y accede al enlace de conexión."
+          : "Consulta las sesiones finales, inscribe personas habilitadas y accede al enlace de conexión.";
+      }
+      if (elements.sessionsFilterResult) {
+        elements.sessionsFilterResult.textContent =
+          `${visible.length} de ${phaseSessions.length} sesiones ${sessionSummaryFilter === "initial" ? "iniciales" : "finales"}`;
+      }
     }
+
     elements.sessionsEmpty.hidden = visible.length > 0;
     elements.sessionsGrid.hidden = visible.length === 0;
-    elements.sessionsEmpty.textContent = phaseSessions.length === 0
-      ? `No hay sesiones ${sessionSummaryFilter === "initial" ? "iniciales" : "finales"} disponibles actualmente.`
-      : "No hay sesiones que coincidan con los filtros seleccionados.";
+    elements.sessionsEmpty.textContent = personSearchActive
+      ? `No hay sesiones dentro del intervalo de fechas seleccionado para «${rawSearch}».`
+      : phaseSessions.length === 0
+        ? `No hay sesiones ${sessionSummaryFilter === "initial" ? "iniciales" : "finales"} disponibles actualmente.`
+        : "No hay sesiones que coincidan con los filtros seleccionados.";
     elements.sessionsGrid.innerHTML = visible.map(sessionCard).join("");
   }
 
