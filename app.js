@@ -29,6 +29,10 @@
     sessionCount: document.querySelector("#sessionCount"),
     initialCount: document.querySelector("#initialCount"),
     finalCount: document.querySelector("#finalCount"),
+    sessionSearch: document.querySelector("#sessionSearch"),
+    sessionsTitle: document.querySelector("#sessionsTitle"),
+    sessionBrowserPanel: document.querySelector("#sessionBrowserPanel"),
+    sessionsDescription: document.querySelector("#sessionsDescription"),
     sessionDateFromFilter: document.querySelector("#sessionDateFromFilter"),
     sessionDateToFilter: document.querySelector("#sessionDateToFilter"),
     clearSessionFilters: document.querySelector("#clearSessionFilters"),
@@ -155,7 +159,7 @@
   let annexDocumentDownloadRequests = [];
   let documentViewMode = "create";
   let incidentFilter = "all";
-  let sessionSummaryFilter = "all";
+  let sessionSummaryFilter = null;
   let registrationSummaryFilter = "all";
   let documentQuickFilter = "all";
 
@@ -219,21 +223,101 @@
     return true;
   }
 
+  function registrationsForSession(sessionId) {
+    return registrations.filter((registration) =>
+      String(registration.session?.id || "") === String(sessionId)
+      && registration.status !== "cancelled"
+    );
+  }
+
+  function sessionParticipantRow(registration) {
+    const participant = registration.participant ?? {};
+    const session = registration.session ?? {};
+    const today = localToday();
+    const canChange = ["pending", "confirmed"].includes(registration.status)
+      && registration.sync_status !== "processing"
+      && session.session_date >= today;
+    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status);
+    const statusText = statusLabel(registration.status);
+    const incident = registration.incident_message || participant.incident_message || "";
+    return `
+      <div class="session-participant-row">
+        <div class="session-participant-identity">
+          <strong>${escapeHtml(participant.display_name || "Persona")}</strong>
+          <small>${escapeHtml(participant.masked_document || "Documento protegido")}</small>
+          ${incident ? `<small class="danger-text">${escapeHtml(incident)}</small>` : ""}
+        </div>
+        <div class="session-participant-status">
+          <span class="badge ${registration.status}">${escapeHtml(statusText)}</span>
+          <small>${escapeHtml(registration.program_name_snapshot || "Sin programa")}</small>
+        </div>
+        <div class="session-participant-actions">
+          <button class="button secondary small js-change-session" type="button" data-registration-id="${registration.id}" ${canChange ? "" : "disabled"}>Cambiar sesión</button>
+          <button class="button danger-outline small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>Cancelar</button>
+        </div>
+      </div>`;
+  }
+
+  function resetSessionTypeSelection() {
+    sessionSummaryFilter = null;
+    document.querySelectorAll("[data-session-type]").forEach((button) => button.classList.remove("active"));
+    if (elements.sessionBrowserPanel) elements.sessionBrowserPanel.hidden = true;
+    if (elements.sessionSearch) elements.sessionSearch.value = "";
+    if (elements.sessionDateFromFilter) elements.sessionDateFromFilter.value = "";
+    if (elements.sessionDateToFilter) elements.sessionDateToFilter.value = "";
+  }
+
+  function setSessionType(type) {
+    sessionSummaryFilter = type === "final" ? "final" : "initial";
+    document.querySelectorAll("[data-session-type]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.sessionType === sessionSummaryFilter);
+    });
+    if (elements.sessionBrowserPanel) elements.sessionBrowserPanel.hidden = false;
+    if (elements.sessionsTitle) elements.sessionsTitle.textContent = sessionSummaryFilter === "initial" ? "Sesiones iniciales" : "Sesiones finales";
+    if (elements.sessionsDescription) {
+      elements.sessionsDescription.textContent = sessionSummaryFilter === "initial"
+        ? "Consulta las sesiones iniciales, inscribe personas y accede al enlace de conexión."
+        : "Consulta las sesiones finales, inscribe personas habilitadas y accede al enlace de conexión.";
+    }
+    renderSessions();
+    elements.sessionBrowserPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function renderSessions() {
+    if (!sessionSummaryFilter) {
+      if (elements.sessionBrowserPanel) elements.sessionBrowserPanel.hidden = true;
+      return;
+    }
+    const search = normalizeSearchText(elements.sessionSearch?.value);
     const dateFrom = elements.sessionDateFromFilter?.value || "";
     const dateTo = elements.sessionDateToFilter?.value || "";
-    const visible = sessions.filter((session) => {
-      if (sessionSummaryFilter !== "all" && session.session_type !== sessionSummaryFilter) return false;
+    const phaseSessions = sessions.filter((session) => session.session_type === sessionSummaryFilter);
+    const visible = phaseSessions.filter((session) => {
       if (dateFrom && session.session_date < dateFrom) return false;
       if (dateTo && session.session_date > dateTo) return false;
+      if (search) {
+        const searchable = normalizeSearchText([
+          session.title,
+          session.session_date,
+          formatDate(session.session_date),
+          session.trainer,
+          formatTime(session.start_time),
+          formatTime(session.end_time),
+        ].join(" "));
+        if (!searchable.includes(search)) return false;
+      }
       return true;
     });
-    updateSummaryButtons("[data-session-summary-filter]", sessionSummaryFilter, "sessionSummaryFilter");
-    if (elements.sessionsFilterResult) elements.sessionsFilterResult.textContent = `${visible.length} de ${sessions.length} sesiones`;
+    document.querySelectorAll("[data-session-type]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.sessionType === sessionSummaryFilter);
+    });
+    if (elements.sessionsFilterResult) {
+      elements.sessionsFilterResult.textContent = `${visible.length} de ${phaseSessions.length} sesiones ${sessionSummaryFilter === "initial" ? "iniciales" : "finales"}`;
+    }
     elements.sessionsEmpty.hidden = visible.length > 0;
     elements.sessionsGrid.hidden = visible.length === 0;
-    elements.sessionsEmpty.textContent = sessions.length === 0
-      ? "No hay sesiones disponibles actualmente."
+    elements.sessionsEmpty.textContent = phaseSessions.length === 0
+      ? `No hay sesiones ${sessionSummaryFilter === "initial" ? "iniciales" : "finales"} disponibles actualmente.`
       : "No hay sesiones que coincidan con los filtros seleccionados.";
     elements.sessionsGrid.innerHTML = visible.map(sessionCard).join("");
   }
@@ -699,42 +783,67 @@
 
   function sessionCard(session) {
     const isInitial = session.session_type === "initial";
-    const phaseLabel = isInitial ? "Sesión inicial" : "Sesión final";
-    const availability = session.registration_open ? "Inscripción abierta" : "Inscripción cerrada";
+    const phaseLabel = isInitial ? "Inicial" : "Final";
     const available = Number(session.regular_available ?? 0);
+    const sessionRegistrations = registrationsForSession(session.id);
+    const participantCount = sessionRegistrations.length;
     const canRegisterInitial = isInitial && session.registration_open && available > 0;
     const canRegisterFinal = !isInitial && session.registration_open && available > 0 && eligibleParticipants.length > 0;
     let actionLabel = "Inscripción cerrada";
     let actionClass = "";
-    let note = "";
+    let registrationNote = "";
 
     if (canRegisterInitial) {
-      actionLabel = "Inscribir persona";
+      actionLabel = "Inscribir";
       actionClass = "js-register-initial";
     } else if (canRegisterFinal) {
-      actionLabel = "Inscribir en final";
+      actionLabel = "Inscribir";
       actionClass = "js-register-final";
     } else if (!isInitial && session.registration_open && eligibleParticipants.length === 0) {
       actionLabel = "Sin personas disponibles";
-      note = "La sesión final se habilita cuando el SAE confirma que la persona completó la sesión inicial.";
+      registrationNote = "La inscripción final se habilita para las personas cuya sesión inicial conste como realizada.";
     }
 
+    const meetingUrl = String(session.meeting_url || "").trim();
+    const hasMeetingUrl = Boolean(meetingUrl);
+    const participantsHtml = participantCount
+      ? sessionRegistrations.map(sessionParticipantRow).join("")
+      : '<p class="session-panel-empty">Todavía no hay participantes inscritos en esta sesión.</p>';
+
     return `
-      <article class="session-card">
-        <div class="session-primary-heading ${isInitial ? "initial" : "final"}">
-          <strong>${phaseLabel} · ${escapeHtml(formatDate(session.session_date))}</strong>
+      <article class="session-browser-row" data-session-id="${session.id}">
+        <div class="session-browser-main">
+          <div class="session-date-block ${isInitial ? "initial" : "final"}">
+            <span>${phaseLabel}</span>
+            <strong>${escapeHtml(formatDate(session.session_date))}</strong>
+          </div>
+          <div class="session-browser-copy">
+            <h3>${escapeHtml(session.title)}</h3>
+            <p>${escapeHtml(formatTime(session.start_time))}–${escapeHtml(formatTime(session.end_time))} · ${escapeHtml(session.trainer || "Personal formador pendiente")}</p>
+            <div class="session-browser-meta">
+              <span class="badge ${session.registration_open ? "open" : "closed"}">${session.registration_open ? "Inscripción abierta" : "Inscripción cerrada"}</span>
+              <span>${available} plazas disponibles</span>
+              <span>${participantCount} participante${participantCount === 1 ? "" : "s"}</span>
+            </div>
+          </div>
         </div>
-        <h3>${escapeHtml(session.title)}</h3>
-        <dl class="session-meta">
-          <div><dt>Horario</dt><dd>${escapeHtml(formatTime(session.start_time))}–${escapeHtml(formatTime(session.end_time))}</dd></div>
-          <div><dt>Personal formador</dt><dd>${escapeHtml(session.trainer || "Pendiente")}</dd></div>
-          <div><dt>Plazas ordinarias libres</dt><dd>${available}</dd></div>
-        </dl>
-        <div class="session-footer">
-          <span class="badge ${session.registration_open ? "open" : "closed"}">${availability}</span>
+        <div class="session-browser-actions">
           <button class="button ${actionClass ? "primary" : "secondary"} small ${actionClass}" type="button" data-session-id="${session.id}" ${actionClass ? "" : "disabled"}>${actionLabel}</button>
+          <button class="button secondary small js-toggle-link" type="button" data-session-id="${session.id}" ${hasMeetingUrl ? "" : "disabled"}>${hasMeetingUrl ? "Ver enlace" : "Sin enlace"}</button>
+          <button class="button secondary small js-toggle-participants" type="button" data-session-id="${session.id}" ${participantCount ? "" : "disabled"}>Participantes (${participantCount})</button>
         </div>
-        ${note ? `<p class="session-enrol-note">${escapeHtml(note)}</p>` : ""}
+        ${registrationNote ? `<p class="session-row-note">${escapeHtml(registrationNote)}</p>` : ""}
+        <div class="session-link-panel" data-session-link-panel="${session.id}" hidden>
+          <span>Enlace de la sesión</span>
+          <div class="session-link-value">
+            <a href="${escapeHtml(meetingUrl)}" target="_blank" rel="noreferrer">${escapeHtml(meetingUrl)}</a>
+            <button class="button secondary small js-copy-link" type="button" data-link="${escapeHtml(meetingUrl)}">Copiar</button>
+          </div>
+        </div>
+        <div class="session-participants-panel" data-session-participants-panel="${session.id}" hidden>
+          <div class="session-panel-heading"><strong>Participantes inscritos</strong><span>${participantCount}</span></div>
+          ${participantsHtml}
+        </div>
       </article>`;
   }
 
@@ -1213,7 +1322,7 @@
     const annexCount =
       allItems.filter((item) => item.group === "annex").length;
 
-    elements.incidentMenuCount.textContent = String(allItems.length);
+    if (elements.incidentMenuCount) elements.incidentMenuCount.textContent = String(allItems.length);
     elements.incidentTotalCount.textContent = String(allItems.length);
     elements.incidentRegistrationCount.textContent =
       String(registrationCount);
@@ -1823,7 +1932,7 @@
         .filter((participant, index, all) =>
           all.findIndex((other) => other?.id === participant.id) === index
         );
-      elements.registrationTabCount.textContent = String(registrations.length);
+      if (elements.registrationTabCount) elements.registrationTabCount.textContent = String(registrations.length);
       renderIncidents();
       renderRegistrations();
     } finally {
@@ -1841,7 +1950,7 @@
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await client
         .from("sessions")
-        .select(`id, session_type, title, session_date, start_time, end_time, trainer, capacity_regular, regular_available, maximum_available, registration_open, published, status`)
+        .select(`id, session_type, title, session_date, start_time, end_time, trainer, meeting_url, capacity_regular, regular_available, maximum_available, registration_open, published, status`)
         .eq("published", true)
         .eq("status", "scheduled")
         .gte("session_date", today)
@@ -2263,18 +2372,16 @@
       try { await reloadPortalData(); showNotice("success", "Las inscripciones se han actualizado."); }
       catch (error) { showNotice("error", `No se pudieron actualizar las inscripciones: ${error.message}`); }
     });
-    document.querySelectorAll("[data-session-summary-filter]").forEach((button) => {
-      button.addEventListener("click", () => {
-        sessionSummaryFilter = button.dataset.sessionSummaryFilter || "all";
-        renderSessions();
-      });
+    document.querySelectorAll("[data-session-type]").forEach((button) => {
+      button.addEventListener("click", () => setSessionType(button.dataset.sessionType));
     });
+    elements.sessionSearch?.addEventListener("input", renderSessions);
     elements.sessionDateFromFilter?.addEventListener("change", renderSessions);
     elements.sessionDateToFilter?.addEventListener("change", renderSessions);
     elements.clearSessionFilters?.addEventListener("click", () => {
+      if (elements.sessionSearch) elements.sessionSearch.value = "";
       elements.sessionDateFromFilter.value = "";
       elements.sessionDateToFilter.value = "";
-      sessionSummaryFilter = "all";
       renderSessions();
     });
     document.querySelectorAll("[data-registration-summary-filter]").forEach((button) => {
@@ -2320,7 +2427,8 @@
     });
     document.querySelectorAll(".js-dashboard-action").forEach((button) => button.addEventListener("click", () => {
       const action = button.dataset.action;
-      if (action === "participants") setActiveSection("sessionsSection");
+      if (action === "sessions-hub") { resetSessionTypeSelection(); setActiveSection("sessionsSection"); }
+      else if (action === "participants") { setSessionType("initial"); setActiveSection("sessionsSection"); }
       else if (action === "changes") setActiveSection("registrationsSection");
       else if (action === "incidents") { renderIncidents(); setActiveSection("incidentsSection"); }
       else if (action === "annex-create") openDocumentSection("create");
@@ -2346,11 +2454,55 @@
       catch (error) { showNotice("error", `No se pudieron actualizar las incidencias: ${error.message}`); }
       finally { elements.refreshIncidentsButton.disabled = false; elements.incidentsLoading.hidden = true; }
     });
-    elements.sessionsGrid.addEventListener("click", (event) => {
+    elements.sessionsGrid.addEventListener("click", async (event) => {
       const initialButton = event.target.closest(".js-register-initial");
       const finalButton = event.target.closest(".js-register-final");
+      const linkButton = event.target.closest(".js-toggle-link");
+      const copyButton = event.target.closest(".js-copy-link");
+      const participantsButton = event.target.closest(".js-toggle-participants");
+      const changeButton = event.target.closest(".js-change-session");
+      const cancelButton = event.target.closest(".js-cancel-registration");
       if (initialButton) openInitialDialog(initialButton.dataset.sessionId);
       if (finalButton) openFinalDialog(finalButton.dataset.sessionId);
+      if (linkButton) {
+        const panel = elements.sessionsGrid.querySelector(`[data-session-link-panel="${linkButton.dataset.sessionId}"]`);
+        if (panel) {
+          panel.hidden = !panel.hidden;
+          linkButton.textContent = panel.hidden ? "Ver enlace" : "Ocultar enlace";
+        }
+      }
+      if (participantsButton) {
+        const panel = elements.sessionsGrid.querySelector(`[data-session-participants-panel="${participantsButton.dataset.sessionId}"]`);
+        if (panel) {
+          panel.hidden = !panel.hidden;
+          participantsButton.textContent = panel.hidden
+            ? `Participantes (${registrationsForSession(participantsButton.dataset.sessionId).length})`
+            : "Ocultar participantes";
+        }
+      }
+      if (copyButton) {
+        const text = copyButton.dataset.link || "";
+        if (text) {
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch {
+            const area = document.createElement("textarea");
+            area.value = text;
+            area.setAttribute("readonly", "");
+            area.style.position = "fixed";
+            area.style.opacity = "0";
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand("copy");
+            area.remove();
+          }
+          const previous = copyButton.textContent;
+          copyButton.textContent = "Copiado ✓";
+          setTimeout(() => { copyButton.textContent = previous; }, 1400);
+        }
+      }
+      if (changeButton && !changeButton.disabled) openChangeSessionDialog(changeButton.dataset.registrationId);
+      if (cancelButton && !cancelButton.disabled) openCancelDialog(cancelButton.dataset.registrationId);
     });
     elements.registrationsList.addEventListener("click", (event) => {
       const changeButton = event.target.closest(".js-change-session");
