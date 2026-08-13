@@ -56,7 +56,7 @@
         <ul class="feature-list">
           <li>Nombre, apellidos y DNI/NIE se cifran en el navegador.</li>
           <li>GitHub no recibe ni almacena formularios.</li>
-          <li>Supabase conserva temporalmente un bloque cifrado.</li>
+          <li>La información sensible se transmite y almacena cifrada.</li>
           <li>La clave privada permanece en el servidor interno del SAE.</li>
         </ul>
         <p class="muted">La lista municipal muestra únicamente el nombre y las iniciales de los apellidos, junto con el documento enmascarado.</p>
@@ -542,7 +542,7 @@
       <div class="privacy-box annex-generation-info-box">
         <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen únicamente las personas asistentes; en las filas de quienes no asistieron aparecerá el motivo que haya indicado el Ayuntamiento.</p>
         <p><strong>Después:</strong> digitaliza el documento firmado y obtén la firma digital de la persona responsable del ayuntamiento. Ese PDF será el que se incorpore desde «Subida de Anexos I».</p>
-        <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
+        <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador.</p>
       </div>
 
       <div class="modal-actions">
@@ -571,7 +571,7 @@
       <div class="privacy-box">
         <p><strong>Antes de subirlo</strong></p>
         <p>El PDF debe contener las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento que da validez a la asistencia.</p>
-        <p><strong>Protección:</strong> el archivo se cifra mediante AES-256-GCM. La clave AES se protege con la clave pública RSA del SAE. Supabase solo recibe un binario cifrado.</p>
+        <p><strong>Protección:</strong> el PDF se cifra antes de enviarse al SAE.</p>
         <p class="muted">Tamaño máximo: 12 MB. No incluyas datos personales en el nombre del archivo.</p>
       </div>
       <div class="modal-actions">
@@ -584,6 +584,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260813-generacion-asistencia-v1-10-0"></script>
+  <script src="./app.js?v=20260813-v1-10-3"></script>
 </body>
 </html>

@@ -574,13 +574,7 @@
       ];
     }
     if (documentViewMode === "upload") {
-      return [
-        ["all", "Todas"],
-        ["ready", "Listas para subir"],
-        ["review", "En revisión DP"],
-        ["incident", "Con incidencia"],
-        ["validated", "Validadas"],
-      ];
+      return [];
     }
     return [
       ["all", "Todas"],
@@ -593,6 +587,7 @@
   function renderDocumentQuickFilters() {
     const options = documentFilterOptions();
     if (!options.some(([key]) => key === documentQuickFilter)) documentQuickFilter = "all";
+    elements.documentQuickFilters.hidden = options.length === 0;
     elements.documentQuickFilters.innerHTML = options.map(([key, label]) =>
       `<button class="quick-filter-button ${key === documentQuickFilter ? "active" : ""}" type="button" data-document-quick-filter="${key}">${escapeHtml(label)}</button>`
     ).join("");
@@ -671,15 +666,15 @@
         heading: "Subida de Anexos I",
         kicker: "Entrega segura",
         title: "Subir Anexo I firmado",
-        description: "Incorpora el PDF con las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento.",
-        empty: "No hay sesiones disponibles para incorporar documentación firmada."
+        description: "Se muestran únicamente sesiones finalizadas. Incorpora el PDF con las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento.",
+        empty: "No hay sesiones finalizadas disponibles para incorporar documentación firmada."
       },
       download: {
         heading: "Descarga de Anexos I",
         kicker: "Documentos generados",
         title: "Descargar Anexo I",
-        description: "Tras la validación provincial, descarga el PDF firmado por el ayuntamiento y el PDF final validado por la Dirección Provincial. No se ofrece opción de impresión desde el portal.",
-        empty: "No hay sesiones con Anexos I disponibles para descargar."
+        description: "Se muestran únicamente sesiones finalizadas. Tras la validación provincial, descarga el PDF firmado por el ayuntamiento y el PDF final validado por la Dirección Provincial. No se ofrece opción de impresión desde el portal.",
+        empty: "No hay sesiones finalizadas con Anexos I disponibles para descargar."
       }
     }[documentViewMode];
     elements.documentsModeHeading.textContent = copy.heading;
@@ -1413,7 +1408,7 @@
     const today = localToday();
     const groups = documentViewMode === "create"
       ? allGroups.filter((group) => String(group.session.session_date || "") <= today)
-      : allGroups;
+      : allGroups.filter((group) => sessionHasFinished(group.session));
     const phase = elements.documentPhaseFilter?.value || "all";
     const date = elements.documentDateFilter?.value || "";
     const visible = groups.filter((group) => {
@@ -1873,7 +1868,7 @@
       });
       if (error) throw new Error(error.message);
       const response = Array.isArray(data) ? data[0] : data;
-      if (!response?.request_id) throw new Error("Supabase no devolvió la solicitud de generación.");
+      if (!response?.request_id) throw new Error("El servicio no devolvió la solicitud de generación.");
       localStorage.setItem(annexKeyStorageName(response.request_id), key.rawKey);
       pendingAnnexGeneration = null;
       if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
@@ -1971,7 +1966,7 @@
       });
       if (error) throw new Error(error.message);
       const response = Array.isArray(data) ? data[0] : data;
-      if (!response?.request_id) throw new Error("Supabase no devolvió la solicitud de descarga.");
+      if (!response?.request_id) throw new Error("El servicio no devolvió la solicitud de descarga.");
       localStorage.setItem(
         annexDocumentDownloadKeyStorageName(response.request_id),
         key.rawKey,
