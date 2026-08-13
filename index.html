@@ -131,7 +131,7 @@
             <div class="management-actions">
               <button class="management-action js-dashboard-action" type="button" data-action="annex-create">
                 <span class="management-action-number" aria-hidden="true">1</span>
-                <span><strong>Generación de Anexos I</strong><small>Disponible al finalizar la sesión. Incluye automáticamente a todas las personas que constan como asistentes.</small></span>
+                <span><strong>Generación de Anexos I</strong><small>Disponible al finalizar la sesión. Incluye automáticamente a todas las personas inscritas con la asistencia cerrada.</small></span>
                 <span class="management-action-arrow" aria-hidden="true">›</span>
               </button>
               <button class="management-action js-dashboard-action" type="button" data-action="annex-upload">
@@ -522,17 +522,34 @@
         El Anexo I incluye a todas las personas inscritas. Si alguna figura como «No asistió», el Ayuntamiento debe indicar aquí su motivo de no asistencia antes de generar el PDF. Ese motivo aparecerá en el espacio destinado a su firma.
       </div>
 
-      <div class="privacy-box">
+      <div class="modal-actions">
+        <button id="cancelAnnexGeneration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitAnnexGeneration" class="button primary" type="submit">Generar PDF para firmas</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="annexGenerationInfoDialog" class="modal-dialog compact-dialog" aria-labelledby="annexGenerationInfoTitle">
+    <div class="modal-card">
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Antes de generar el PDF</p>
+          <h2 id="annexGenerationInfoTitle">Preparación del Anexo I para firmas</h2>
+        </div>
+        <button id="closeAnnexGenerationInfoDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <div class="privacy-box annex-generation-info-box">
         <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen únicamente las personas asistentes; en las filas de quienes no asistieron aparecerá el motivo que haya indicado el Ayuntamiento.</p>
         <p><strong>Después:</strong> digitaliza el documento firmado y obtén la firma digital de la persona responsable del ayuntamiento. Ese PDF será el que se incorpore desde «Subida de Anexos I».</p>
         <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
       </div>
 
       <div class="modal-actions">
-        <button id="cancelAnnexGeneration" class="button secondary" type="button">Cancelar</button>
-        <button id="submitAnnexGeneration" class="button primary" type="submit">Generar PDF para firmas</button>
+        <button id="backAnnexGenerationInfo" class="button secondary" type="button">Volver</button>
+        <button id="confirmAnnexGenerationInfo" class="button primary" type="button">Entendido, generar PDF</button>
       </div>
-    </form>
+    </div>
   </dialog>
 
   <dialog id="documentUploadDialog" class="modal-dialog compact-dialog" aria-labelledby="documentUploadTitle">

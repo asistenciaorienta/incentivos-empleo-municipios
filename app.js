@@ -149,7 +149,11 @@
     annexParticipantsList: document.querySelector("#annexParticipantsList"),
     closeAnnexGenerationDialog: document.querySelector("#closeAnnexGenerationDialog"),
     cancelAnnexGeneration: document.querySelector("#cancelAnnexGeneration"),
-    submitAnnexGeneration: document.querySelector("#submitAnnexGeneration")
+    submitAnnexGeneration: document.querySelector("#submitAnnexGeneration"),
+    annexGenerationInfoDialog: document.querySelector("#annexGenerationInfoDialog"),
+    closeAnnexGenerationInfoDialog: document.querySelector("#closeAnnexGenerationInfoDialog"),
+    backAnnexGenerationInfo: document.querySelector("#backAnnexGenerationInfo"),
+    confirmAnnexGenerationInfo: document.querySelector("#confirmAnnexGenerationInfo")
   };
 
   let client = null;
@@ -173,6 +177,7 @@
   let documentAutoRefreshTimer = null;
   let documentAutoRefreshBusy = false;
   let portalToastTimer = null;
+  let pendingAnnexGeneration = null;
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -1782,13 +1787,22 @@
   }
 
   function closeAnnexGenerationDialog() {
+    pendingAnnexGeneration = null;
+    if (elements.annexGenerationInfoDialog?.open) elements.annexGenerationInfoDialog.close();
     elements.annexGenerationForm.reset();
     elements.annexParticipantsList.innerHTML = "";
     clearNotice(elements.annexGenerationNotice);
     elements.annexGenerationDialog.close();
   }
 
-  async function handleAnnexGeneration(event) {
+  function closeAnnexGenerationInfoDialog() {
+    pendingAnnexGeneration = null;
+    if (elements.annexGenerationInfoDialog?.open) {
+      elements.annexGenerationInfoDialog.close();
+    }
+  }
+
+  function prepareAnnexGeneration(event) {
     event.preventDefault();
     clearNotice(elements.annexGenerationNotice);
     const sessionId = elements.annexGenerationSessionId.value;
@@ -1797,6 +1811,7 @@
     const representativePosition = normalizePersonText(elements.annexRepresentativePosition.value);
     const absenceReasons = {};
     const absentRegistrations = registrationsForAnnex(sessionId).filter((item) => item.status === "absent");
+
     for (const registration of absentRegistrations) {
       const field = elements.annexParticipantsList.querySelector(`[data-annex-absence-reason-id="${registration.id}"]`);
       const reason = normalizePersonText(field?.value || "");
@@ -1821,31 +1836,57 @@
       return;
     }
 
+    pendingAnnexGeneration = {
+      sessionId,
+      registrationIds,
+      representativeName,
+      representativePosition,
+      absenceReasons,
+      modality: elements.annexModality.value,
+    };
+    elements.annexGenerationInfoDialog.showModal();
+  }
+
+  async function confirmAnnexGeneration() {
+    const payload = pendingAnnexGeneration;
+    if (!payload) {
+      closeAnnexGenerationInfoDialog();
+      return;
+    }
+
+    elements.confirmAnnexGenerationInfo.disabled = true;
+    elements.confirmAnnexGenerationInfo.textContent = "Preparando cifrado…";
     elements.submitAnnexGeneration.disabled = true;
-    elements.submitAnnexGeneration.textContent = "Preparando cifrado…";
+
     try {
       const key = await createAnnexDownloadKey(activeEncryptionKey.public_key_pem);
-      elements.submitAnnexGeneration.textContent = "Solicitando al SAE…";
+      elements.confirmAnnexGenerationInfo.textContent = "Solicitando al SAE…";
       const { data, error } = await client.rpc("begin_annex_generation_with_absences", {
-        p_session_id: sessionId,
-        p_registration_ids: registrationIds,
-        p_modality: elements.annexModality.value,
-        p_representative_name: representativeName,
-        p_representative_position: representativePosition,
+        p_session_id: payload.sessionId,
+        p_registration_ids: payload.registrationIds,
+        p_modality: payload.modality,
+        p_representative_name: payload.representativeName,
+        p_representative_position: payload.representativePosition,
         p_key_id: activeEncryptionKey.id,
         p_encrypted_download_key: key.encryptedKey,
-        p_absence_reasons: absenceReasons,
+        p_absence_reasons: payload.absenceReasons,
       });
       if (error) throw new Error(error.message);
       const response = Array.isArray(data) ? data[0] : data;
       if (!response?.request_id) throw new Error("Supabase no devolvió la solicitud de generación.");
       localStorage.setItem(annexKeyStorageName(response.request_id), key.rawKey);
+      pendingAnnexGeneration = null;
+      if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
       closeAnnexGenerationDialog();
       await loadDocuments();
       showNotice("success", "El SAE está generando el Anexo I. Esta pantalla se actualiza automáticamente cada 20 segundos y mostrará la descarga en cuanto esté disponible.");
     } catch (error) {
+      if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
       showNotice("error", error.message || "No se pudo solicitar el Anexo I.", elements.annexGenerationNotice);
     } finally {
+      pendingAnnexGeneration = null;
+      elements.confirmAnnexGenerationInfo.disabled = false;
+      elements.confirmAnnexGenerationInfo.textContent = "Entendido, generar PDF";
       elements.submitAnnexGeneration.disabled = false;
       elements.submitAnnexGeneration.textContent = "Generar PDF para firmas";
     }
@@ -2829,9 +2870,13 @@
     elements.documentUploadForm.addEventListener("submit", handleDocumentUpload);
     elements.closeDocumentUploadDialog.addEventListener("click", closeDocumentUploadDialog);
     elements.cancelDocumentUpload.addEventListener("click", closeDocumentUploadDialog);
-    elements.annexGenerationForm.addEventListener("submit", handleAnnexGeneration);
+    elements.annexGenerationForm.addEventListener("submit", prepareAnnexGeneration);
     elements.closeAnnexGenerationDialog.addEventListener("click", closeAnnexGenerationDialog);
     elements.cancelAnnexGeneration.addEventListener("click", closeAnnexGenerationDialog);
+    elements.closeAnnexGenerationInfoDialog.addEventListener("click", closeAnnexGenerationInfoDialog);
+    elements.backAnnexGenerationInfo.addEventListener("click", closeAnnexGenerationInfoDialog);
+    elements.annexGenerationInfoDialog.addEventListener("cancel", () => { pendingAnnexGeneration = null; });
+    elements.confirmAnnexGenerationInfo.addEventListener("click", confirmAnnexGeneration);
   }
 
   async function initialize() {
