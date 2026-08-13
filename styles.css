@@ -1243,7 +1243,7 @@ select:focus {
 }
 
 
-/* v1.5.2 · Estados visuales en Creación de Anexos I */
+/* v1.5.2 · Estados visuales en Generación de Anexos I */
 .document-item.annex-generated {
   border-left: 5px solid #168654;
   background: #f3fbf6;
@@ -2184,4 +2184,64 @@ select:focus {
   .portal-toast {
     top: 0.5rem;
   }
+}
+
+
+/* v1.10.0 · Generación de Anexos I y asistencia provincial */
+.documents-refresh-tools { display:flex; align-items:center; justify-content:flex-end; gap:.7rem; flex-wrap:wrap; }
+.auto-refresh-status { color:var(--muted); font-size:.82rem; font-weight:650; }
+.annex-attendance-info { margin:1rem 0; }
+.annex-participant-absent { background:#fff9ef; border-color:#ead6a3; }
+.annex-absence-reason { display:block; margin-top:.3rem; color:#755613; }
+@media (max-width:760px) { .documents-refresh-tools { width:100%; justify-content:flex-start; } }
+
+
+/* v1.10.1 · Motivos de no asistencia cumplimentados por el Ayuntamiento */
+.annex-participant-readonly {
+  grid-template-columns: minmax(0, 1fr) auto;
+  cursor: default;
+}
+.annex-participant-identity { min-width: 0; }
+.annex-participant-identity strong,
+.annex-participant-identity small { display: block; }
+.annex-participant-identity small { margin-top: .18rem; color: var(--muted, #66736d); }
+.annex-participant-absence-editor {
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: #fffaf0;
+  border-left: 4px solid #d39b35;
+}
+.annex-absence-reason-field {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: .35rem;
+  margin-top: .2rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+.annex-absence-reason-field > span { display: block; }
+.annex-absence-reason-field textarea {
+  width: 100%;
+  min-height: 4.6rem;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: .7rem .75rem;
+  border: 1px solid #c9d3ce;
+  border-radius: .65rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.35;
+}
+.annex-absence-reason-field textarea:focus {
+  outline: 3px solid rgba(0, 107, 79, .14);
+  border-color: var(--sae-green);
+}
+.annex-absence-reason-field small {
+  color: var(--muted, #66736d);
+  font-weight: 400;
+}
+@media (max-width: 620px) {
+  .annex-participant-readonly,
+  .annex-participant-absence-editor { grid-template-columns: 1fr; }
+  .annex-participant-readonly > .badge { justify-self: start; }
 }

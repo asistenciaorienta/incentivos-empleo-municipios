@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260813-generacion-anexos-v1-9-8">
+  <link rel="stylesheet" href="./styles.css?v=20260813-generacion-asistencia-v1-10-0">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -280,9 +280,12 @@
             <div>
               <p id="documentsKicker" class="section-kicker">Preparación para firmas</p>
               <h2 id="documentsTitle">Generar Anexo I</h2>
-              <p id="documentsDescription">Después de finalizar la sesión, genera el listado con todas las personas cuya asistencia esté confirmada.</p>
+              <p id="documentsDescription">Después de finalizar la sesión, genera el listado con todas las personas inscritas una vez que la Dirección Provincial haya cerrado la asistencia.</p>
             </div>
-            <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
+            <div class="documents-refresh-tools">
+              <span id="documentsAutoRefreshStatus" class="auto-refresh-status">Actualización automática cada 20 s</span>
+              <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar ahora</button>
+            </div>
           </div>
           <div class="document-filter-panel">
             <div id="documentQuickFilters" class="quick-filter-row" role="group" aria-label="Filtros rápidos de Anexos I"></div>
@@ -475,7 +478,7 @@
       <div id="annexGenerationNotice" class="notice" role="status" aria-live="polite" hidden></div>
       <div class="modal-heading">
         <div>
-          <p class="section-kicker">Documento oficial para firmas</p>
+          <p class="section-kicker">Documento oficial</p>
           <h2 id="annexGenerationTitle">Generar Anexo I</h2>
           <p id="annexGenerationSummary" class="muted">—</p>
         </div>
@@ -508,14 +511,19 @@
 
       <div class="annex-selection-heading">
         <div>
-          <strong>Personas asistentes que aparecerán en el listado</strong>
-          <small id="annexParticipantCount">0 personas asistentes incluidas automáticamente</small>
+          <strong>Personas inscritas que aparecerán en el Anexo I</strong>
+          <small id="annexParticipantCount">0 personas incluidas automáticamente</small>
         </div>
       </div>
       <div id="annexParticipantsList" class="annex-participants-list"></div>
 
+      <div class="notice info annex-attendance-info">
+        <strong>La asistencia la registra la Dirección Provincial.</strong>
+        El Anexo I incluye a todas las personas inscritas. Si alguna figura como «No asistió», el Ayuntamiento debe indicar aquí su motivo de no asistencia antes de generar el PDF. Ese motivo aparecerá en el espacio destinado a su firma.
+      </div>
+
       <div class="privacy-box">
-        <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen las personas asistentes.</p>
+        <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen únicamente las personas asistentes; en las filas de quienes no asistieron aparecerá el motivo que haya indicado el Ayuntamiento.</p>
         <p><strong>Después:</strong> digitaliza el documento firmado y obtén la firma digital de la persona responsable del ayuntamiento. Ese PDF será el que se incorpore desde «Subida de Anexos I».</p>
         <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
       </div>
@@ -559,6 +567,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260813-generacion-anexos-v1-9-8"></script>
+  <script src="./app.js?v=20260813-generacion-asistencia-v1-10-0"></script>
 </body>
 </html>
