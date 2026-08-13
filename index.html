@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
+  <title>Incentivos al empleo · Portal municipal</title>
+  <link rel="stylesheet" href="./styles.css?v=20260813-mejoras-avisos-v1-9-7">
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-logo-shell" aria-hidden="true">
+        <img class="brand-logo" src="./assets/incentivos-empleo.webp" alt="">
+      </div>
+      <div>
+        <p class="eyebrow">Servicio Andaluz de Empleo · Granada</p>
+        <h1>Incentivos al empleo</h1>
+        <p class="header-subtitle">Portal municipal de gestión de sesiones y Anexos I</p>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido" class="page-shell">
+    <div id="appNotice" class="notice" role="status" aria-live="polite" hidden></div>
+    <div id="portalToast" class="portal-toast" role="status" aria-live="polite" hidden></div>
+
+    <section id="loginView" class="auth-layout" aria-labelledby="loginTitle">
+      <article class="card auth-card">
+        <div class="card-heading">
+          <p class="section-kicker">Acceso identificado</p>
+          <h2 id="loginTitle">Entrar en el portal</h2>
+          <p>Utiliza el correo institucional y la contraseña asignada.</p>
+        </div>
+
+        <form id="loginForm" class="form-stack" novalidate>
+          <label>
+            <span>Correo electrónico</span>
+            <input id="email" name="email" type="email" autocomplete="username" inputmode="email" required placeholder="usuario@ayuntamiento.es">
+          </label>
+          <label>
+            <span>Contraseña</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button id="loginButton" class="button primary" type="submit">Entrar</button>
+        </form>
+
+        <p class="support-note">El acceso está limitado a usuarios municipales autorizados.</p>
+      </article>
+
+      <aside class="card information-card" aria-label="Información del portal">
+        <p class="section-kicker">Protección de datos</p>
+        <h2>Identidad protegida desde el origen</h2>
+        <ul class="feature-list">
+          <li>Nombre, apellidos y DNI/NIE se cifran en el navegador.</li>
+          <li>GitHub no recibe ni almacena formularios.</li>
+          <li>Supabase conserva temporalmente un bloque cifrado.</li>
+          <li>La clave privada permanece en el servidor interno del SAE.</li>
+        </ul>
+        <p class="muted">La lista municipal muestra únicamente el nombre y las iniciales de los apellidos, junto con el documento enmascarado.</p>
+      </aside>
+    </section>
+
+    <section id="portalView" hidden>
+      <div class="portal-toolbar card">
+        <div>
+          <p class="section-kicker">Ayuntamiento conectado</p>
+          <h2 id="municipalityName">—</h2>
+          <p id="userSummary" class="muted">—</p>
+        </div>
+        <button id="globalBackToMenu" class="button secondary header-back-button js-back-dashboard" type="button" hidden>← Volver al menú principal</button>
+        <button id="logoutButton" class="button secondary" type="button">Cerrar sesión</button>
+      </div>
+
+      <section id="dashboardSection" class="portal-section portal-dashboard" aria-labelledby="dashboardTitle">
+        <div class="dashboard-intro">
+          <p class="section-kicker">Menú de gestión</p>
+          <h2 id="dashboardTitle">¿Qué necesitas gestionar?</h2>
+          <p>Selecciona una de las opciones para acceder directamente a la tarea correspondiente.</p>
+        </div>
+
+        <div class="management-grid management-grid-v195">
+          <article class="management-area management-area-sessions card" aria-labelledby="sessionsManagementTitle">
+            <div class="management-area-heading">
+              <span class="management-area-index" aria-hidden="true">01</span>
+              <div>
+                <p class="section-kicker">Sesiones grupales</p>
+                <h3 id="sessionsManagementTitle">Gestión de Sesiones Grupales</h3>
+                <p>Alta y seguimiento de las personas participantes en las sesiones.</p>
+              </div>
+            </div>
+            <div class="management-actions">
+              <button class="management-action management-action-featured js-dashboard-action" type="button" data-action="sessions-hub">
+                <span class="management-action-number" aria-hidden="true">1</span>
+                <span><strong>Inscripción / Enlaces</strong><small>Consultar sesiones iniciales o finales, inscribir personas, acceder al enlace y revisar participantes inscritos.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="management-area management-area-incidents card" aria-labelledby="incidentsManagementTitle">
+            <div class="management-area-heading">
+              <span class="management-area-index" aria-hidden="true">02</span>
+              <div>
+                <p class="section-kicker">Gestión transversal</p>
+                <h3 id="incidentsManagementTitle">Incidencias</h3>
+                <p>Revisar incidencias relacionadas con inscripciones, participantes, sesiones grupales o Anexos I.</p>
+              </div>
+            </div>
+            <div class="management-actions">
+              <button class="management-action management-action-featured js-dashboard-action" type="button" data-action="incidents">
+                <span class="management-action-number" aria-hidden="true">!</span>
+                <span><strong>Consultar incidencias</strong><small>Acceder a todos los elementos que requieren revisión o actuación.</small></span>
+                <span class="menu-count attention-count" id="incidentMenuCount">0</span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="management-area management-area-annex card" aria-labelledby="annexManagementTitle">
+            <div class="management-area-heading">
+              <span class="management-area-index" aria-hidden="true">03</span>
+              <div>
+                <p class="section-kicker">Anexo I</p>
+                <h3 id="annexManagementTitle">Gestión de Anexos I</h3>
+                <p>Creación para firmas, entrega del PDF firmado y descarga de las versiones validadas.</p>
+              </div>
+            </div>
+            <div class="management-actions">
+              <button class="management-action js-dashboard-action" type="button" data-action="annex-create">
+                <span class="management-action-number" aria-hidden="true">1</span>
+                <span><strong>Creación de Anexos I</strong><small>Disponible al finalizar la sesión. Incluye automáticamente a todas las personas que constan como asistentes.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="management-action js-dashboard-action" type="button" data-action="annex-upload">
+                <span class="management-action-number" aria-hidden="true">2</span>
+                <span><strong>Subida de Anexos I</strong><small>Enviar el PDF con firmas manuscritas de asistentes y firma digital de la persona responsable municipal.</small></span>
+                <span class="menu-count" id="documentTabCount">0</span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="management-action js-dashboard-action" type="button" data-action="annex-download">
+                <span class="management-action-number" aria-hidden="true">3</span>
+                <span><strong>Descarga de Anexos I</strong><small>Tras la validación provincial, descargar la versión municipal firmada y la versión final validada por la Dirección Provincial.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="sessionsSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          
+          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Inscripción / Enlaces</h2></div>
+        </div>
+
+        <section class="session-type-switch" aria-label="Tipo de sesión">
+          <button class="session-type-button" type="button" data-session-type="initial">
+            <span>Inicial</span><strong id="initialCount">0</strong>
+          </button>
+          <button class="session-type-button" type="button" data-session-type="final">
+            <span>Final</span><strong id="finalCount">0</strong>
+          </button>
+        </section>
+        <span id="sessionCount" hidden>0</span>
+
+        <section id="sessionBrowserPanel" class="card sessions-card" aria-labelledby="sessionsTitle" hidden>
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Programación</p>
+              <h2 id="sessionsTitle">Sesiones iniciales</h2>
+              <p id="sessionsDescription">Consulta las sesiones iniciales, inscribe personas y accede al enlace de conexión.</p>
+            </div>
+            <button id="refreshButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+
+          <div class="filter-toolbar session-browser-toolbar" aria-label="Buscar y filtrar sesiones">
+            <label class="filter-field filter-field-grow"><span>Buscar</span><input id="sessionSearch" type="search" placeholder="Persona inscrita, fecha o sesión…" autocomplete="off"></label>
+            <label class="filter-field"><span>Desde</span><input id="sessionDateFromFilter" type="date"></label>
+            <label class="filter-field"><span>Hasta</span><input id="sessionDateToFilter" type="date"></label>
+            <button id="clearSessionFilters" class="button secondary small filter-clear-button" type="button">Limpiar filtros</button>
+          </div>
+          <div id="sessionsFilterResult" class="filter-result" aria-live="polite"></div>
+          <div id="sessionsLoading" class="empty-state">Cargando sesiones…</div>
+          <div id="sessionsEmpty" class="empty-state" hidden>No hay sesiones disponibles actualmente.</div>
+          <div id="sessionsGrid" class="session-browser-list" hidden></div>
+        </section>
+      </section>
+
+      <section id="registrationsSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          
+          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Personas inscritas / cambios de sesión</h2></div>
+        </div>
+        <section class="summary-grid registration-summary-grid" aria-label="Resumen de personas inscritas">
+          <button class="summary-card summary-filter-button active" type="button" data-registration-summary-filter="all"><span>Total</span><strong id="registrationsTotalCount">0</strong><small>Mostrar todas</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-registration-summary-filter="waiting"><span>A la espera de sesión</span><strong id="registrationsWaitingCount">0</strong><small>Pendientes / confirmadas</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-registration-summary-filter="attended"><span>Realizadas</span><strong id="registrationsAttendedCount">0</strong><small>Asistencia confirmada</small></button>
+          <button class="summary-card summary-filter-button" type="button" data-registration-summary-filter="review"><span>Requieren revisión</span><strong id="registrationsReviewCount">0</strong><small>Incidencias</small></button>
+        </section>
+
+        <section class="card sessions-card" aria-labelledby="registrationsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Seguimiento municipal</p>
+              <h2 id="registrationsTitle">Inscripciones existentes</h2>
+              <p>Selecciona una persona y elige directamente la nueva sesión. El sistema libera la plaza anterior y reserva la nueva en una sola operación.</p>
+            </div>
+            <button id="refreshRegistrationsButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+          <div class="filter-toolbar registration-filter-toolbar" aria-label="Filtros de personas inscritas">
+            <label class="filter-field filter-field-grow"><span>Persona</span><input id="registrationSearch" type="search" placeholder="Buscar por nombre…" autocomplete="off"></label>
+            <label class="filter-field"><span>Día de la sesión</span><input id="registrationDateFilter" type="date"></label>
+            <label class="filter-field"><span>Tipo</span><select id="registrationPhaseFilter"><option value="all">Inicial y final</option><option value="initial">Inicial</option><option value="final">Final</option></select></label>
+            <label class="filter-field"><span>Estado</span><select id="registrationStatusFilter"><option value="all">Todos</option><option value="waiting">A la espera de sesión</option><option value="attended">Realizada</option><option value="absent">No asistió</option><option value="review">Requiere revisión</option><option value="cancelled">Cancelada</option></select></label>
+            <button id="clearRegistrationFilters" class="button secondary small filter-clear-button" type="button">Limpiar filtros</button>
+          </div>
+          <div id="registrationsFilterResult" class="filter-result" aria-live="polite"></div>
+          <div id="registrationsLoading" class="empty-state">Cargando inscripciones…</div>
+          <div id="registrationsEmpty" class="empty-state" hidden>No hay inscripciones realizadas por este ayuntamiento.</div>
+          <div id="registrationsList" class="registration-list" hidden></div>
+        </section>
+      </section>
+
+      <section id="incidentsSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          
+          <div><p class="section-kicker">Sesiones, participantes y Anexos I</p><h2>Incidencias</h2></div>
+        </div>
+
+        <section class="summary-grid incident-summary" aria-label="Resumen de incidencias">
+          <article class="summary-card">
+            <span>Pendientes</span>
+            <strong id="incidentTotalCount">0</strong>
+            <small>requieren atención</small>
+          </article>
+          <article class="summary-card">
+            <span>Inscripciones</span>
+            <strong id="incidentRegistrationCount">0</strong>
+            <small>personas o sincronización</small>
+          </article>
+          <article class="summary-card">
+            <span>Anexos I</span>
+            <strong id="incidentAnnexCount">0</strong>
+            <small>generación o documento firmado</small>
+          </article>
+        </section>
+
+        <section class="card sessions-card" aria-labelledby="incidentsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Elementos que requieren atención</p>
+              <h2 id="incidentsTitle">Incidencias pendientes</h2>
+              <p>Desde cada incidencia puedes ir directamente a la pantalla donde se resuelve.</p>
+            </div>
+            <button id="refreshIncidentsButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+
+          <div class="incident-toolbar" role="group" aria-label="Filtrar incidencias">
+            <button class="incident-filter active" type="button" data-incident-filter="all">Todas</button>
+            <button class="incident-filter" type="button" data-incident-filter="registration">Inscripciones</button>
+            <button class="incident-filter" type="button" data-incident-filter="annex">Anexos I</button>
+          </div>
+
+          <div id="incidentsLoading" class="empty-state" hidden>Actualizando incidencias…</div>
+          <div id="incidentsEmpty" class="empty-state">No hay incidencias pendientes.</div>
+          <div id="incidentsList" class="incident-list" hidden></div>
+        </section>
+      </section>
+
+      <section id="documentsSection" class="portal-section" hidden data-mode="create">
+        <div class="section-navigation">
+          
+          <div><p class="section-kicker">Gestión de Anexos I</p><h2 id="documentsModeHeading">Creación de Anexos I</h2></div>
+        </div>
+        <section class="card sessions-card" aria-labelledby="documentsTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p id="documentsKicker" class="section-kicker">Preparación para firmas</p>
+              <h2 id="documentsTitle">Crear Anexo I</h2>
+              <p id="documentsDescription">Después de finalizar la sesión, genera el listado con todas las personas cuya asistencia esté confirmada.</p>
+            </div>
+            <button id="refreshDocumentsButton" class="button secondary small" type="button">Actualizar</button>
+          </div>
+          <div class="document-filter-panel">
+            <div id="documentQuickFilters" class="quick-filter-row" role="group" aria-label="Filtros rápidos de Anexos I"></div>
+            <div class="filter-toolbar document-filter-toolbar">
+              <label class="filter-field"><span>Tipo de sesión</span><select id="documentPhaseFilter"><option value="all">Inicial y final</option><option value="initial">Inicial</option><option value="final">Final</option></select></label>
+              <label class="filter-field"><span>Día de la sesión</span><input id="documentDateFilter" type="date"></label>
+              <button id="clearDocumentFilters" class="button secondary small filter-clear-button" type="button">Limpiar filtros</button>
+            </div>
+            <div id="documentsFilterResult" class="filter-result" aria-live="polite"></div>
+          </div>
+          <div id="documentsLoading" class="empty-state">Cargando documentación…</div>
+          <div id="documentsEmpty" class="empty-state" hidden>No hay sesiones con inscripciones disponibles.</div>
+          <div id="documentsList" class="document-list" hidden></div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer"><p>Dirección Provincial del SAE en Granada</p></footer>
+
+  <dialog id="municipalNoticesDialog" class="modal-dialog compact-dialog municipal-notices-dialog" aria-labelledby="municipalNoticesTitle">
+    <div class="modal-card municipal-notices-card">
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Información para el Ayuntamiento</p>
+          <h2 id="municipalNoticesTitle">Avisos del SAE</h2>
+          <p class="muted">Revisa las novedades o indicaciones vigentes antes de continuar.</p>
+        </div>
+        <button id="closeMunicipalNoticesDialog" class="icon-button" type="button" aria-label="Cerrar avisos">×</button>
+      </div>
+
+      <div id="municipalNoticesList" class="municipal-notices-list"></div>
+
+      <label class="municipal-notices-remember">
+        <input id="municipalNoticesRemember" type="checkbox" checked>
+        <span>No volver a mostrar estos avisos hasta que haya novedades.</span>
+      </label>
+
+      <div class="modal-actions">
+        <button id="acceptMunicipalNotices" class="button primary" type="button">Entendido</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="initialRegistrationDialog" class="modal-dialog" aria-labelledby="initialDialogTitle">
+    <form id="initialRegistrationForm" class="modal-card" method="dialog" novalidate>
+      <div id="registrationNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Nueva inscripción</p>
+          <h2 id="initialDialogTitle">Sesión inicial</h2>
+          <p id="initialSessionSummary" class="muted">—</p>
+        </div>
+        <button id="closeInitialDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <input id="initialSessionId" type="hidden">
+
+      <div class="form-grid">
+        <label class="span-2"><span>Nombre</span><input id="firstName" autocomplete="off" maxlength="80" required></label>
+        <label><span>Primer apellido</span><input id="firstSurname" autocomplete="off" maxlength="80" required></label>
+        <label><span>Segundo apellido</span><input id="secondSurname" autocomplete="off" maxlength="80" required></label>
+        <label>
+          <span>Tipo de documento</span>
+          <select id="documentType" required><option value="DNI">DNI</option><option value="NIE">NIE</option></select>
+        </label>
+        <label>
+          <span>DNI/NIE</span>
+          <input id="documentNumber" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" required placeholder="12345678Z">
+        </label>
+        <label class="span-2">
+          <span>Programa en el que participa</span>
+          <select id="initialProgram" required></select>
+          <small id="initialProgramHelp" class="field-help"></small>
+        </label>
+      </div>
+
+      <div class="privacy-box">
+        <p><strong>Información que verá el ayuntamiento:</strong></p>
+        <p id="safePreview">Nombre I. I. · ***0000**</p>
+        <label class="checkbox-label">
+          <input id="informationConfirmed" type="checkbox" required>
+          <span>Declaro que se ha facilitado a la persona la información aplicable sobre el tratamiento de sus datos.</span>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelInitialRegistration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitInitialRegistration" class="button primary" type="submit">Cifrar e inscribir</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="finalRegistrationDialog" class="modal-dialog" aria-labelledby="finalDialogTitle">
+    <form id="finalRegistrationForm" class="modal-card" method="dialog">
+      <div id="finalRegistrationNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Nueva inscripción</p>
+          <h2 id="finalDialogTitle">Sesión final</h2>
+          <p id="finalSessionSummary" class="muted">—</p>
+        </div>
+        <button id="closeFinalDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <input id="finalSessionId" type="hidden">
+      <label>
+        <span>Persona que ha completado la sesión inicial</span>
+        <select id="eligibleParticipant" required></select>
+      </label>
+      <label>
+        <span>Programa en el que participa</span>
+        <select id="finalProgram" required></select>
+        <small class="field-help">Se propone el programa de la sesión inicial, pero puede modificarse.</small>
+      </label>
+      <div class="modal-actions">
+        <button id="cancelFinalRegistration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitFinalRegistration" class="button primary" type="submit">Inscribir en sesión final</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <dialog id="changeSessionDialog" class="modal-dialog compact-dialog" aria-labelledby="changeSessionDialogTitle">
+    <form id="changeSessionForm" class="modal-card" method="dialog" novalidate>
+      <div id="changeSessionNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Cambio de sesión</p>
+          <h2 id="changeSessionDialogTitle">Trasladar inscripción</h2>
+          <p class="muted">La inscripción anterior se conservará en el histórico como trasladada.</p>
+        </div>
+        <button id="closeChangeSessionDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <input id="changeRegistrationId" type="hidden">
+
+      <div class="transfer-summary">
+        <div>
+          <span>Persona</span>
+          <strong id="changeParticipantSummary">—</strong>
+        </div>
+        <div>
+          <span>Programa</span>
+          <strong id="changeProgramSummary">—</strong>
+        </div>
+        <div>
+          <span>Sesión actual</span>
+          <strong id="changeCurrentSessionSummary">—</strong>
+        </div>
+      </div>
+
+      <label>
+        <span>Nueva sesión</span>
+        <select id="changeTargetSession" required></select>
+        <small class="field-help">Solo se muestran sesiones del mismo tipo, abiertas y con plazas disponibles.</small>
+      </label>
+
+      <div class="privacy-box">
+        <p><strong>Importante:</strong> el cambio se realiza de forma conjunta. No se elimina el histórico de la sesión anterior.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelChangeSession" class="button secondary" type="button">Volver</button>
+        <button id="confirmChangeSession" class="button primary" type="submit">Confirmar cambio de sesión</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="cancelDialog" class="modal-dialog compact-dialog" aria-labelledby="cancelDialogTitle">
+    <div class="modal-card">
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Confirmación</p>
+          <h2 id="cancelDialogTitle">Cancelar inscripción</h2>
+        </div>
+        <button id="closeCancelDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <p id="cancelDialogText">—</p>
+      <div class="modal-actions">
+        <button id="keepRegistrationButton" class="button secondary" type="button">Mantener inscripción</button>
+        <button id="confirmCancelButton" class="button danger" type="button">Cancelar inscripción</button>
+      </div>
+    </div>
+  </dialog>
+
+
+
+  <dialog id="annexGenerationDialog" class="modal-dialog annex-generation-dialog" aria-labelledby="annexGenerationTitle">
+    <form id="annexGenerationForm" class="modal-card annex-generation-card" method="dialog" novalidate>
+      <div id="annexGenerationNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Documento oficial para firmas</p>
+          <h2 id="annexGenerationTitle">Generar Anexo I</h2>
+          <p id="annexGenerationSummary" class="muted">—</p>
+        </div>
+        <button id="closeAnnexGenerationDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <input id="annexGenerationSessionId" type="hidden">
+
+      <div class="form-grid">
+        <label>
+          <span>Modalidad</span>
+          <select id="annexModality" required>
+            <option value="online" selected>Telemática</option>
+            <option value="in_person">Presencial</option>
+          </select>
+        </label>
+        <label>
+          <span>Provincia</span>
+          <input value="Granada" disabled>
+        </label>
+        <label>
+          <span>Nombre y apellidos de la persona responsable municipal</span>
+          <input id="annexRepresentativeName" maxlength="180" required>
+        </label>
+        <label>
+          <span>Cargo</span>
+          <input id="annexRepresentativePosition" maxlength="180" required>
+        </label>
+      </div>
+
+      <div class="annex-selection-heading">
+        <div>
+          <strong>Personas asistentes que aparecerán en el listado</strong>
+          <small id="annexParticipantCount">0 personas asistentes incluidas automáticamente</small>
+        </div>
+      </div>
+      <div id="annexParticipantsList" class="annex-participants-list"></div>
+
+      <div class="privacy-box">
+        <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen las personas asistentes.</p>
+        <p><strong>Después:</strong> digitaliza el documento firmado y obtén la firma digital de la persona responsable del ayuntamiento. Ese PDF será el que se incorpore desde «Subida de Anexos I».</p>
+        <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador. Supabase conserva únicamente un binario ilegible y temporal.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelAnnexGeneration" class="button secondary" type="button">Cancelar</button>
+        <button id="submitAnnexGeneration" class="button primary" type="submit">Generar PDF para firmas</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="documentUploadDialog" class="modal-dialog compact-dialog" aria-labelledby="documentUploadTitle">
+    <form id="documentUploadForm" class="modal-card" method="dialog" novalidate>
+      <div id="documentUploadNotice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Entrega segura</p>
+          <h2 id="documentUploadTitle">Subir Anexo I firmado</h2>
+          <p id="documentSessionSummary" class="muted">—</p>
+        </div>
+        <button id="closeDocumentUploadDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
+      </div>
+      <input id="documentSessionId" type="hidden">
+      <label>
+        <span>PDF firmado por asistentes + responsable municipal</span>
+        <input id="signedAnnexFile" type="file" accept="application/pdf,.pdf" required>
+      </label>
+      <div class="privacy-box">
+        <p><strong>Antes de subirlo</strong></p>
+        <p>El PDF debe contener las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento que da validez a la asistencia.</p>
+        <p><strong>Protección:</strong> el archivo se cifra mediante AES-256-GCM. La clave AES se protege con la clave pública RSA del SAE. Supabase solo recibe un binario cifrado.</p>
+        <p class="muted">Tamaño máximo: 12 MB. No incluyas datos personales en el nombre del archivo.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="cancelDocumentUpload" class="button secondary" type="button">Cancelar</button>
+        <button id="submitDocumentUpload" class="button primary" type="submit">Cifrar y enviar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="./avisos.js?v=20260813-v1-9-7"></script>
+  <script src="./config.js"></script>
+  <script src="./app.js?v=20260813-mejoras-avisos-v1-9-7"></script>
+</body>
+</html>
