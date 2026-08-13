@@ -2262,3 +2262,17 @@ select:focus {
     padding: .82rem;
   }
 }
+
+/* v1.10.6 · Orden visual real del menú: 01 Sesiones / 02 Anexos I / 03 Incidencias */
+.management-grid-v195 {
+  grid-template-areas: "sessions annex incidents";
+}
+
+@media (max-width: 1050px) {
+  .management-grid-v195 {
+    grid-template-areas:
+      "sessions"
+      "annex"
+      "incidents";
+  }
+}
