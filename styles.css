@@ -1919,3 +1919,23 @@ select:focus {
   .session-type-switch { grid-template-columns: 1fr; gap: 1rem; margin-top: 1.5rem; }
   .session-type-button { min-height: 120px; }
 }
+
+
+/* v1.9.4 · Incidencias como bloque transversal 03 */
+.management-area-incidents {
+  grid-column: 1 / -1;
+}
+
+.management-area-incidents .management-actions {
+  max-width: 760px;
+}
+
+@media (max-width: 900px) {
+  .management-area-incidents {
+    grid-column: auto;
+  }
+
+  .management-area-incidents .management-actions {
+    max-width: none;
+  }
+}

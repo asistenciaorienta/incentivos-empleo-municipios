@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260812-v1-9-1">
+  <link rel="stylesheet" href="./styles.css?v=20260813-incidencias-menu-03-v1-9-4">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -126,6 +126,25 @@
               </button>
             </div>
           </article>
+
+          <article class="management-area management-area-incidents card" aria-labelledby="incidentsManagementTitle">
+            <div class="management-area-heading">
+              <span class="management-area-index" aria-hidden="true">03</span>
+              <div>
+                <p class="section-kicker">Gestión transversal</p>
+                <h3 id="incidentsManagementTitle">Incidencias</h3>
+                <p>Revisar incidencias relacionadas con inscripciones, participantes, sesiones grupales o Anexos I.</p>
+              </div>
+            </div>
+            <div class="management-actions">
+              <button class="management-action management-action-featured js-dashboard-action" type="button" data-action="incidents">
+                <span class="management-action-number" aria-hidden="true">!</span>
+                <span><strong>Consultar incidencias</strong><small>Acceder a todos los elementos que requieren revisión o actuación.</small></span>
+                <span class="menu-count attention-count" id="incidentMenuCount">0</span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -156,7 +175,7 @@
           </div>
 
           <div class="filter-toolbar session-browser-toolbar" aria-label="Buscar y filtrar sesiones">
-            <label class="filter-field filter-field-grow"><span>Buscar</span><input id="sessionSearch" type="search" placeholder="Persona inscrita, fecha, sesión o personal formador…" autocomplete="off"></label>
+            <label class="filter-field filter-field-grow"><span>Buscar</span><input id="sessionSearch" type="search" placeholder="Persona inscrita, fecha o sesión…" autocomplete="off"></label>
             <label class="filter-field"><span>Desde</span><input id="sessionDateFromFilter" type="date"></label>
             <label class="filter-field"><span>Hasta</span><input id="sessionDateToFilter" type="date"></label>
             <button id="clearSessionFilters" class="button secondary small filter-clear-button" type="button">Limpiar filtros</button>
@@ -206,7 +225,7 @@
       <section id="incidentsSection" class="portal-section" hidden>
         <div class="section-navigation">
           <button class="button secondary small js-back-dashboard" type="button">← Volver al menú principal</button>
-          <div><p class="section-kicker">Gestión de Sesiones Grupales</p><h2>Incidencias</h2></div>
+          <div><p class="section-kicker">Sesiones, participantes y Anexos I</p><h2>Incidencias</h2></div>
         </div>
 
         <section class="summary-grid incident-summary" aria-label="Resumen de incidencias">
@@ -513,6 +532,6 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260813-persona-inicial-final-v1-9-3"></script>
+  <script src="./app.js?v=20260813-incidencias-menu-03-v1-9-4"></script>
 </body>
 </html>
