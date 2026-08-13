@@ -296,6 +296,16 @@
       if (dateFrom && session.session_date < dateFrom) return false;
       if (dateTo && session.session_date > dateTo) return false;
       if (search) {
+        const sessionRegistrations = registrationsForSession(session.id);
+        const participantSearchText = sessionRegistrations.flatMap((registration) => {
+          const participant = registration.participant ?? {};
+          return [
+            participant.display_name,
+            participant.masked_document,
+            registration.program_name_snapshot,
+          ];
+        });
+
         const searchable = normalizeSearchText([
           session.title,
           session.session_date,
@@ -303,7 +313,9 @@
           session.trainer,
           formatTime(session.start_time),
           formatTime(session.end_time),
+          ...participantSearchText,
         ].join(" "));
+
         if (!searchable.includes(search)) return false;
       }
       return true;
