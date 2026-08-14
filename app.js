@@ -12,6 +12,17 @@
   const ANNEX_KEY_STORAGE_PREFIX = "incentivos-generated-annex-key";
   const ANNEX_DOCUMENT_DOWNLOAD_SCHEMA = "incentivos-empleo.annex-document-download.v1";
   const ANNEX_DOCUMENT_DOWNLOAD_KEY_PREFIX = "incentivos-annex-document-download-key";
+  const SESSION_MATERIALS = Object.freeze({
+    initial: [
+      { label: "Material de la sesión", href: "./assets/materiales/sesion-inicial-material.pdf" },
+      { label: "Presentación", href: "./assets/materiales/sesion-inicial-presentacion.pdf" },
+    ],
+    final: [
+      { label: "Material de la sesión", href: "./assets/materiales/sesion-final-material.pdf" },
+      { label: "Presentación", href: "./assets/materiales/sesion-final-presentacion.pdf" },
+      { label: "Enlaces y bibliografía", href: "./assets/materiales/sesion-final-enlaces-bibliografia.pdf" },
+    ],
+  });
 
   const elements = {
     notice: document.querySelector("#appNotice"),
@@ -81,6 +92,7 @@
     documentType: document.querySelector("#documentType"),
     documentNumber: document.querySelector("#documentNumber"),
     informationConfirmed: document.querySelector("#informationConfirmed"),
+    initialMaterialConfirmed: document.querySelector("#initialMaterialConfirmed"),
     initialProgram: document.querySelector("#initialProgram"),
     initialProgramHelp: document.querySelector("#initialProgramHelp"),
     safePreview: document.querySelector("#safePreview"),
@@ -91,6 +103,7 @@
     finalSessionSummary: document.querySelector("#finalSessionSummary"),
     eligibleParticipant: document.querySelector("#eligibleParticipant"),
     finalProgram: document.querySelector("#finalProgram"),
+    finalMaterialConfirmed: document.querySelector("#finalMaterialConfirmed"),
     closeFinalDialog: document.querySelector("#closeFinalDialog"),
     cancelFinalRegistration: document.querySelector("#cancelFinalRegistration"),
     submitFinalRegistration: document.querySelector("#submitFinalRegistration"),
@@ -384,6 +397,88 @@
           <button class="button danger-outline small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>Cancelar</button>
         </div>
       </div>`;
+  }
+
+  function materialLinksForSessionType(sessionType) {
+    const materials = SESSION_MATERIALS[sessionType] || [];
+    return materials.map((material) => `
+      <a class="button secondary small session-material-download" href="${escapeHtml(material.href)}" download>
+        ${escapeHtml(material.label)}
+      </a>`).join("");
+  }
+
+  function printSessionParticipants(sessionId) {
+    const session = findSession(sessionId);
+    if (!session) return;
+
+    const sessionRegistrations = [...registrationsForSession(sessionId)].sort((a, b) =>
+      String(a.participant?.display_name || "").localeCompare(String(b.participant?.display_name || ""), "es", { sensitivity: "base" })
+    );
+
+    if (!sessionRegistrations.length) {
+      showNotice("warning", "Esta sesión todavía no tiene personas inscritas para imprimir.");
+      return;
+    }
+
+    const municipality = currentProfile?.municipality?.name || "Ayuntamiento";
+    const phaseLabel = session.session_type === "initial" ? "Inicial" : "Final";
+    const rows = sessionRegistrations.map((registration, index) => {
+      const participant = registration.participant ?? {};
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(participant.display_name || "Persona")}</td>
+          <td>${escapeHtml(participant.masked_document || "Documento protegido")}</td>
+          <td>${escapeHtml(registration.program_name_snapshot || "Sin programa")}</td>
+          <td>${escapeHtml(statusLabel(registration.status))}</td>
+        </tr>`;
+    }).join("");
+
+    const printWindow = window.open("", "_blank", "width=980,height=720");
+    if (!printWindow) {
+      showNotice("warning", "El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes para este portal e inténtalo de nuevo.");
+      return;
+    }
+    try { printWindow.opener = null; } catch {}
+
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personas inscritas · ${escapeHtml(session.title || "Sesión")}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #17231d; font-size: 11pt; }
+    h1 { margin: 0 0 5px; font-size: 18pt; }
+    .meta { margin: 0 0 16px; color: #46564e; line-height: 1.45; }
+    .summary { margin: 0 0 12px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 7px 6px; border: 1px solid #b9c7c0; text-align: left; vertical-align: top; }
+    th { background: #edf4f0; font-size: 9.5pt; }
+    td:first-child { width: 34px; text-align: center; }
+    footer { margin-top: 14px; color: #68766f; font-size: 9pt; }
+    @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+  </style>
+</head>
+<body>
+  <h1>Personas inscritas</h1>
+  <p class="meta"><strong>${escapeHtml(municipality)}</strong><br>
+    Sesión ${phaseLabel.toLowerCase()}: ${escapeHtml(session.title || "Sesión")}<br>
+    ${escapeHtml(formatDate(session.session_date))} · ${escapeHtml(formatTime(session.start_time))}–${escapeHtml(formatTime(session.end_time))}
+  </p>
+  <p class="summary">Total: ${sessionRegistrations.length} persona${sessionRegistrations.length === 1 ? "" : "s"}</p>
+  <table>
+    <thead><tr><th>N.º</th><th>Persona</th><th>Documento</th><th>Programa</th><th>Estado</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <footer>Listado generado desde el portal municipal de Incentivos al empleo.</footer>
+  <script>window.addEventListener('load', () => { window.focus(); window.print(); });<\/script>
+</body>
+</html>`);
+    printWindow.document.close();
   }
 
   function resetSessionTypeSelection() {
@@ -1011,6 +1106,8 @@
 
     const meetingUrl = String(session.meeting_url || "").trim();
     const hasMeetingUrl = Boolean(meetingUrl);
+    const materials = SESSION_MATERIALS[session.session_type] || [];
+    const materialLinksHtml = materialLinksForSessionType(session.session_type);
     const participantsHtml = participantCount
       ? sessionRegistrations.map(sessionParticipantRow).join("")
       : '<p class="session-panel-empty">Todavía no hay participantes inscritos en esta sesión.</p>';
@@ -1035,9 +1132,17 @@
         <div class="session-browser-actions">
           <button class="button ${actionClass ? "primary" : "secondary"} small ${actionClass}" type="button" data-session-id="${session.id}" ${actionClass ? "" : "disabled"}>${actionLabel}</button>
           <button class="button secondary small js-toggle-link" type="button" data-session-id="${session.id}" ${hasMeetingUrl ? "" : "disabled"}>${hasMeetingUrl ? "Ver enlace" : "Sin enlace"}</button>
+          <button class="button secondary small js-toggle-materials" type="button" data-session-id="${session.id}">Materiales (${materials.length})</button>
           <button class="button secondary small js-toggle-participants" type="button" data-session-id="${session.id}" ${participantCount ? "" : "disabled"}>Participantes (${participantCount})</button>
         </div>
         ${registrationNote ? `<p class="session-row-note">${escapeHtml(registrationNote)}</p>` : ""}
+        <div class="session-materials-panel" data-session-materials-panel="${session.id}" hidden>
+          <div class="session-panel-heading">
+            <div><strong>Material de la sesión ${isInitial ? "inicial" : "final"}</strong><small>Descarga los documentos que deben facilitarse a las personas participantes.</small></div>
+            <span>${materials.length}</span>
+          </div>
+          <div class="session-material-links">${materialLinksHtml}</div>
+        </div>
         <div class="session-link-panel" data-session-link-panel="${session.id}" hidden>
           <span>Enlace de la sesión</span>
           <div class="session-link-value">
@@ -1046,7 +1151,13 @@
           </div>
         </div>
         <div class="session-participants-panel" data-session-participants-panel="${session.id}" hidden>
-          <div class="session-panel-heading"><strong>Participantes inscritos</strong><span>${participantCount}</span></div>
+          <div class="session-panel-heading session-participants-heading">
+            <div><strong>Participantes inscritos</strong><small>Listado de la sesión correspondiente.</small></div>
+            <div class="session-panel-heading-actions">
+              <span>${participantCount}</span>
+              <button class="button secondary small js-print-participants" type="button" data-session-id="${session.id}" ${participantCount ? "" : "disabled"}>Imprimir listado</button>
+            </div>
+          </div>
           ${participantsHtml}
         </div>
       </article>`;
@@ -2323,6 +2434,7 @@
     const session = findSession(sessionId);
     if (!session) return;
     clearNotice(elements.finalRegistrationNotice);
+    elements.finalForm.reset();
     const availablePrograms = programsForSession(session);
     if (availablePrograms.length === 0) {
       showNotice("warning", "No hay ningún programa activo para la fecha de esta sesión final.");
@@ -2337,6 +2449,7 @@
   }
 
   function closeFinalDialog() {
+    elements.finalForm.reset();
     clearNotice(elements.finalRegistrationNotice);
     elements.finalDialog.close();
   }
@@ -2367,6 +2480,10 @@
     }
     if (!elements.informationConfirmed.checked) {
       showNotice("warning", "Debes confirmar que se ha facilitado la información sobre protección de datos.", elements.registrationNotice);
+      return;
+    }
+    if (!elements.initialMaterialConfirmed.checked) {
+      showNotice("warning", "Debes confirmar que has entregado el material de la sesión inicial a las personas inscritas.", elements.registrationNotice);
       return;
     }
     if (!activeEncryptionKey) {
@@ -2430,6 +2547,10 @@
     }
     if (!programId) {
       showNotice("warning", "Selecciona el programa en el que participa.", elements.finalRegistrationNotice);
+      return;
+    }
+    if (!elements.finalMaterialConfirmed.checked) {
+      showNotice("warning", "Debes confirmar que has entregado el material de la sesión final a las personas inscritas.", elements.finalRegistrationNotice);
       return;
     }
     elements.submitFinalRegistration.disabled = true;
@@ -2779,7 +2900,9 @@
       const finalButton = event.target.closest(".js-register-final");
       const linkButton = event.target.closest(".js-toggle-link");
       const copyButton = event.target.closest(".js-copy-link");
+      const materialsButton = event.target.closest(".js-toggle-materials");
       const participantsButton = event.target.closest(".js-toggle-participants");
+      const printParticipantsButton = event.target.closest(".js-print-participants");
       const changeButton = event.target.closest(".js-change-session");
       const cancelButton = event.target.closest(".js-cancel-registration");
       if (initialButton) openInitialDialog(initialButton.dataset.sessionId);
@@ -2791,6 +2914,15 @@
           linkButton.textContent = panel.hidden ? "Ver enlace" : "Ocultar enlace";
         }
       }
+      if (materialsButton) {
+        const panel = elements.sessionsGrid.querySelector(`[data-session-materials-panel="${materialsButton.dataset.sessionId}"]`);
+        if (panel) {
+          panel.hidden = !panel.hidden;
+          materialsButton.textContent = panel.hidden
+            ? `Materiales (${(SESSION_MATERIALS[findSession(materialsButton.dataset.sessionId)?.session_type] || []).length})`
+            : "Ocultar materiales";
+        }
+      }
       if (participantsButton) {
         const panel = elements.sessionsGrid.querySelector(`[data-session-participants-panel="${participantsButton.dataset.sessionId}"]`);
         if (panel) {
@@ -2799,6 +2931,9 @@
             ? `Participantes (${registrationsForSession(participantsButton.dataset.sessionId).length})`
             : "Ocultar participantes";
         }
+      }
+      if (printParticipantsButton && !printParticipantsButton.disabled) {
+        printSessionParticipants(printParticipantsButton.dataset.sessionId);
       }
       if (copyButton) {
         const text = copyButton.dataset.link || "";

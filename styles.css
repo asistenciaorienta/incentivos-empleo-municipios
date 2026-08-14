@@ -1159,6 +1159,24 @@ select:focus {
   box-shadow: 0 0 0 6px rgba(0, 119, 92, .08);
 }
 
+.registration-material-box {
+  display: grid;
+  gap: .8rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #bfd1c8;
+  border-radius: .9rem;
+  background: #f4f9f6;
+}
+.registration-material-box p { margin: 0; }
+.registration-material-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.registration-material-actions a { text-decoration: none; }
+.registration-material-confirmation {
+  margin-top: .15rem;
+  padding-top: .75rem;
+  border-top: 1px solid #d8e4de;
+}
+
 @media (max-width: 820px) {
   .incident-item {
     grid-template-columns: 1fr;
@@ -1843,6 +1861,7 @@ select:focus {
 .session-row-note { margin: .65rem 0 0; color: var(--muted); font-size: .86rem; }
 
 .session-link-panel,
+.session-materials-panel,
 .session-participants-panel {
   margin-top: .8rem;
   padding: .85rem;
@@ -1856,7 +1875,12 @@ select:focus {
 .session-link-value a { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--sae-green-dark); font-weight: 700; }
 
 .session-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .55rem; }
+.session-panel-heading > div:first-child { display: grid; gap: .18rem; }
+.session-panel-heading small { color: var(--muted); font-weight: 500; }
 .session-panel-heading span { min-width: 1.8rem; min-height: 1.8rem; display: grid; place-items: center; padding: 0 .35rem; border-radius: 999px; background: #e4efe9; color: var(--sae-green-dark); font-weight: 850; }
+.session-panel-heading-actions { display: flex !important; grid-auto-flow: column; align-items: center; gap: .55rem !important; }
+.session-material-links { display: flex; flex-wrap: wrap; gap: .55rem; }
+.session-material-download { text-decoration: none; }
 .session-panel-empty { margin: 0; color: var(--muted); }
 
 .session-participant-row {
@@ -1881,6 +1905,8 @@ select:focus {
   .session-browser-actions .button { flex: 1 1 150px; }
   .session-participant-row { grid-template-columns: 1fr; }
   .session-participant-actions { justify-content: flex-start; }
+  .session-panel-heading { align-items: flex-start; flex-wrap: wrap; }
+  .session-panel-heading-actions { width: 100%; justify-content: space-between; }
 }
 
 @media (max-width: 560px) {

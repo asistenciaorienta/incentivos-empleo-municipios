@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260813-generacion-asistencia-v1-10-0">
+  <link rel="stylesheet" href="./styles.css?v=20260813-v1-10-7">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -363,6 +363,21 @@
         </label>
       </div>
 
+      <div class="registration-material-box">
+        <div>
+          <p class="section-kicker">Material de la sesión inicial</p>
+          <p>Descarga los documentos de apoyo y entrégalos a las personas participantes.</p>
+        </div>
+        <div class="registration-material-actions">
+          <a class="button secondary small" href="./assets/materiales/sesion-inicial-material.pdf" download>Descargar material</a>
+          <a class="button secondary small" href="./assets/materiales/sesion-inicial-presentacion.pdf" download>Descargar presentación</a>
+        </div>
+        <label class="checkbox-label registration-material-confirmation">
+          <input id="initialMaterialConfirmed" type="checkbox" required>
+          <span>He entregado el material de la sesión inicial a las personas inscritas.</span>
+        </label>
+      </div>
+
       <div class="privacy-box">
         <p><strong>Información que verá el ayuntamiento:</strong></p>
         <p id="safePreview">Nombre I. I. · ***0000**</p>
@@ -400,6 +415,23 @@
         <select id="finalProgram" required></select>
         <small class="field-help">Se propone el programa de la sesión inicial, pero puede modificarse.</small>
       </label>
+
+      <div class="registration-material-box">
+        <div>
+          <p class="section-kicker">Material de la sesión final</p>
+          <p>Descarga los documentos de apoyo y entrégalos a las personas participantes.</p>
+        </div>
+        <div class="registration-material-actions">
+          <a class="button secondary small" href="./assets/materiales/sesion-final-material.pdf" download>Descargar material</a>
+          <a class="button secondary small" href="./assets/materiales/sesion-final-presentacion.pdf" download>Descargar presentación</a>
+          <a class="button secondary small" href="./assets/materiales/sesion-final-enlaces-bibliografia.pdf" download>Enlaces y bibliografía</a>
+        </div>
+        <label class="checkbox-label registration-material-confirmation">
+          <input id="finalMaterialConfirmed" type="checkbox" required>
+          <span>He entregado el material de la sesión final a las personas inscritas.</span>
+        </label>
+      </div>
+
       <div class="modal-actions">
         <button id="cancelFinalRegistration" class="button secondary" type="button">Cancelar</button>
         <button id="submitFinalRegistration" class="button primary" type="submit">Inscribir en sesión final</button>
@@ -583,6 +615,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260813-v1-10-4"></script>
+  <script src="./app.js?v=20260813-v1-10-7"></script>
 </body>
 </html>
