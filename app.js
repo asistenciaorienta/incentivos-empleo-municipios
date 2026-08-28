@@ -1609,6 +1609,14 @@
 
     const summary = pendingManagementSummary();
 
+    const pendingManagementPanel =
+      document.querySelector("#pendingManagementPanel");
+
+    if (pendingManagementPanel) {
+      pendingManagementPanel.hidden =
+        summary.total === 0;
+    }
+
     elements.pendingManagementTotal.textContent =
       String(summary.total);
 
