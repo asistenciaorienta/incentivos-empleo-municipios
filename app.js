@@ -65,6 +65,18 @@
     registrationsFilterResult: document.querySelector("#registrationsFilterResult"),
     registrationTabCount: document.querySelector("#registrationTabCount"),
     incidentMenuCount: document.querySelector("#incidentMenuCount"),
+
+    /* v1.9.8 · Pendientes por gestionar */
+    pendingManagementTotal: document.querySelector("#pendingManagementTotal"),
+    pendingManagementMessage: document.querySelector("#pendingManagementMessage"),
+    pendingManagementGrid: document.querySelector("#pendingManagementGrid"),
+    pendingManagementClear: document.querySelector("#pendingManagementClear"),
+    pendingAnnexCreate: document.querySelector("#pendingAnnexCreate"),
+    pendingAnnexCreateCount: document.querySelector("#pendingAnnexCreateCount"),
+    pendingAnnexUpload: document.querySelector("#pendingAnnexUpload"),
+    pendingAnnexUploadCount: document.querySelector("#pendingAnnexUploadCount"),
+    pendingIncidents: document.querySelector("#pendingIncidents"),
+    pendingIncidentCount: document.querySelector("#pendingIncidentCount"),
     incidentTotalCount: document.querySelector("#incidentTotalCount"),
     incidentRegistrationCount: document.querySelector("#incidentRegistrationCount"),
     incidentAnnexCount: document.querySelector("#incidentAnnexCount"),
@@ -1542,6 +1554,95 @@
     }
   }
 
+  /* v1.9.8 · Pendientes por gestionar */
+  function pendingManagementSummary() {
+    const incidents = incidentItems();
+
+    const annexIncidentSessionIds = new Set(
+      incidents
+        .filter((item) => item.group === "annex" && item.sessionId)
+        .map((item) => String(item.sessionId)),
+    );
+
+    let annexCreate = 0;
+    let annexUpload = 0;
+
+    for (const group of documentGroups()) {
+      const sessionId = String(group.session?.id || "");
+      const document = latestDocumentForSession(group.session.id);
+
+      const finished = sessionHasFinished(group.session);
+      const attendanceClosed = group.pendingAttendance === 0;
+
+      const canPrepare =
+        finished
+        && attendanceClosed
+        && group.total > 0;
+
+      if (!canPrepare || document) continue;
+
+      /*
+       * Si esta sesión tiene una incidencia de Anexo I,
+       * se contabiliza exclusivamente como incidencia para
+       * evitar mostrar dos pendientes por la misma actuación.
+       */
+      if (annexIncidentSessionIds.has(sessionId)) continue;
+
+      if (hasDownloadedGeneration(group.session.id)) {
+        annexUpload += 1;
+      } else {
+        annexCreate += 1;
+      }
+    }
+
+    return {
+      annexCreate,
+      annexUpload,
+      incidents: incidents.length,
+      total: annexCreate + annexUpload + incidents.length,
+    };
+  }
+
+
+  function updatePendingManagementSummary() {
+    if (!elements.pendingManagementTotal) return;
+
+    const summary = pendingManagementSummary();
+
+    elements.pendingManagementTotal.textContent =
+      String(summary.total);
+
+    elements.pendingAnnexCreateCount.textContent =
+      String(summary.annexCreate);
+
+    elements.pendingAnnexUploadCount.textContent =
+      String(summary.annexUpload);
+
+    elements.pendingIncidentCount.textContent =
+      String(summary.incidents);
+
+    elements.pendingAnnexCreate.hidden =
+      summary.annexCreate === 0;
+
+    elements.pendingAnnexUpload.hidden =
+      summary.annexUpload === 0;
+
+    elements.pendingIncidents.hidden =
+      summary.incidents === 0;
+
+    elements.pendingManagementGrid.hidden =
+      summary.total === 0;
+
+    elements.pendingManagementClear.hidden =
+      summary.total !== 0;
+
+    elements.pendingManagementMessage.textContent =
+      summary.total === 0
+        ? "No hay actuaciones municipales pendientes en este momento."
+        : `${summary.total} actuación${summary.total === 1 ? "" : "es"} requiere${summary.total === 1 ? "" : "n"} atención.`;
+  }
+
+
   function incidentItems() {
     const items = [];
 
@@ -1651,6 +1752,8 @@
     elements.incidentRegistrationCount.textContent =
       String(registrationCount);
     elements.incidentAnnexCount.textContent = String(annexCount);
+
+    updatePendingManagementSummary();
 
     const items = incidentFilter === "all"
       ? allItems
@@ -1793,6 +1896,8 @@
         municipalDocuments.filter((item) => item.validation_status !== "superseded").length,
       );
       renderDocuments();
+      updatePendingManagementSummary();
+
       if (elements.documentsAutoRefreshStatus && documentViewMode === "create") {
         const time = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
         elements.documentsAutoRefreshStatus.textContent = `Actualización automática cada 20 s · Última: ${time}`;

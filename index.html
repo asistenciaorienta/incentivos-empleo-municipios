@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Portal municipal de Incentivos al empleo - SAE Granada">
   <title>Incentivos al empleo · Portal municipal</title>
-  <link rel="stylesheet" href="./styles.css?v=20260813-v1-10-7">
+  <link rel="stylesheet" href="./styles.css?v=20260827-v1-9-8-pendientes">
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -80,6 +80,68 @@
           <h2 id="dashboardTitle">¿Qué necesitas gestionar?</h2>
           <p>Selecciona una de las opciones para acceder directamente a la tarea correspondiente.</p>
         </div>
+
+        <section id="pendingManagementPanel" class="pending-management card" aria-labelledby="pendingManagementTitle">
+          <div class="pending-management-heading">
+            <div>
+              <p class="section-kicker">Atención</p>
+              <h3 id="pendingManagementTitle">Pendientes por gestionar</h3>
+              <p id="pendingManagementMessage">Comprobando actuaciones pendientes…</p>
+            </div>
+            <span id="pendingManagementTotal" class="pending-management-total" aria-label="Número total de actuaciones pendientes">0</span>
+          </div>
+
+          <div id="pendingManagementGrid" class="pending-management-grid" hidden>
+
+            <button
+              id="pendingAnnexCreate"
+              class="pending-management-item pending-management-warning js-dashboard-action"
+              type="button"
+              data-action="annex-create"
+              hidden
+            >
+              <span class="pending-management-label">Anexos I</span>
+              <strong><span id="pendingAnnexCreateCount">0</span> listos para preparar</strong>
+              <small>La sesión ha terminado y la Dirección Provincial ya ha cerrado la asistencia.</small>
+              <span class="pending-management-action">Ir a generación ›</span>
+            </button>
+
+            <button
+              id="pendingAnnexUpload"
+              class="pending-management-item pending-management-warning js-dashboard-action"
+              type="button"
+              data-action="annex-upload"
+              hidden
+            >
+              <span class="pending-management-label">Anexos I</span>
+              <strong><span id="pendingAnnexUploadCount">0</span> pendientes de subir</strong>
+              <small>El listado para firmas ya fue preparado, pero todavía no consta el PDF firmado.</small>
+              <span class="pending-management-action">Ir a subida ›</span>
+            </button>
+
+            <button
+              id="pendingIncidents"
+              class="pending-management-item pending-management-danger js-dashboard-action"
+              type="button"
+              data-action="incidents"
+              hidden
+            >
+              <span class="pending-management-label">Revisión</span>
+              <strong><span id="pendingIncidentCount">0</span> incidencias o subsanaciones</strong>
+              <small>Hay elementos que requieren revisión o una nueva actuación municipal.</small>
+              <span class="pending-management-action">Ver incidencias ›</span>
+            </button>
+
+          </div>
+
+          <div id="pendingManagementClear" class="pending-management-clear">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>No tienes actuaciones pendientes</strong>
+              <small>La información se actualizará cuando exista alguna tarea que deba gestionar el Ayuntamiento.</small>
+            </div>
+          </div>
+        </section>
 
         <div class="management-grid management-grid-v195">
 <article class="management-area management-area-sessions card" aria-labelledby="sessionsManagementTitle">
@@ -615,6 +677,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260813-v1-10-7"></script>
+  <script src="./app.js?v=20260827-v1-9-8-pendientes"></script>
 </body>
 </html>

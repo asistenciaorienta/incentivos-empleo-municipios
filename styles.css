@@ -2302,3 +2302,153 @@ select:focus {
       "incidents";
   }
 }
+
+
+/* v1.9.8 · Pendientes por gestionar */
+
+.pending-management {
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+}
+
+.pending-management-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem .85rem;
+}
+
+.pending-management-heading h3 {
+  margin: .1rem 0 .2rem;
+  font-size: 1.15rem;
+}
+
+.pending-management-heading p:last-child {
+  margin: 0;
+}
+
+.pending-management-total {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 .65rem;
+  border-radius: 999px;
+  background: #fff3cd;
+  color: #6f4e00;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.pending-management-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .8rem;
+  padding: .2rem 1.25rem 1.25rem;
+}
+
+.pending-management-item {
+  min-width: 0;
+  border: 1px solid #dfe5e2;
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  transition:
+    transform .15s ease,
+    box-shadow .15s ease,
+    border-color .15s ease;
+}
+
+.pending-management-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 20px rgba(25, 60, 48, .09);
+}
+
+.pending-management-item strong {
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+.pending-management-item small {
+  line-height: 1.4;
+}
+
+.pending-management-label {
+  font-size: .73rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .72;
+}
+
+.pending-management-action {
+  margin-top: .3rem;
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.pending-management-warning {
+  border-left: 4px solid #d79a00;
+}
+
+.pending-management-danger {
+  border-left: 4px solid #bd3028;
+}
+
+.pending-management-clear {
+  margin: .15rem 1.25rem 1.25rem;
+  border: 1px solid #cfe2d7;
+  border-radius: 12px;
+  background: #f4faf6;
+  padding: .85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.pending-management-clear > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #e1f2e6;
+  font-weight: 900;
+}
+
+.pending-management-clear div {
+  display: grid;
+  gap: .12rem;
+}
+
+.pending-management-clear small {
+  line-height: 1.35;
+}
+
+@media (max-width: 980px) {
+  .pending-management-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .pending-management-heading {
+    align-items: flex-start;
+  }
+
+  .pending-management-grid {
+    padding-left: .8rem;
+    padding-right: .8rem;
+  }
+
+  .pending-management-clear {
+    margin-left: .8rem;
+    margin-right: .8rem;
+  }
+}
