@@ -70,6 +70,18 @@
           <p class="section-kicker">Ayuntamiento conectado</p>
           <h2 id="municipalityName">—</h2>
           <p id="userSummary" class="muted">—</p>
+
+          <label
+            id="municipalitySwitcherWrap"
+            class="filter-field"
+            hidden
+          >
+            <span>Cambiar ayuntamiento</span>
+            <select
+              id="municipalitySwitcher"
+              aria-label="Ayuntamiento con el que quieres trabajar"
+            ></select>
+          </label>
         </div>
         <button id="globalBackToMenu" class="button secondary header-back-button js-back-dashboard" type="button" hidden>← Volver al menú principal</button>
         <button id="logoutButton" class="button secondary" type="button">Cerrar sesión</button>
@@ -678,6 +690,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260828-v1-9-8-pendientes-hide-empty"></script>
+  <script src="./app.js?v=20260911-multiayto-v1"></script>
 </body>
 </html>

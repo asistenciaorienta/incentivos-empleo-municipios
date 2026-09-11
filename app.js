@@ -182,6 +182,7 @@
   let client = null;
   let currentUser = null;
   let currentProfile = null;
+  let availableMunicipalities = [];
   let sessions = [];
   let registrations = [];
   let eligibleParticipants = [];
@@ -1884,14 +1885,17 @@
         client
           .from("municipal_documents")
           .select("id, session_id, version, sync_status, validation_status, incident_message, upload_status, created_at, processed_at, internal_document_id, validated_internal_document_id, provincial_validated_at, provincial_validated_by")
+          .eq("municipality_id", currentProfile.municipality.id)
           .order("version", { ascending: false }),
         client
           .from("annex_generation_requests")
           .select("id, municipality_id, session_id, status, storage_bucket, storage_path, output_iv, plain_size_bytes, plain_sha256, encrypted_size_bytes, page_count, file_name, incident_message, created_at, generated_at, downloaded_at, expires_at")
+          .eq("municipality_id", currentProfile.municipality.id)
           .order("created_at", { ascending: false }),
         client
           .from("annex_document_download_requests")
           .select("id, municipality_id, session_id, municipal_document_id, variant, status, storage_bucket, storage_path, output_iv, plain_size_bytes, plain_sha256, encrypted_size_bytes, file_name, incident_message, created_at, prepared_at, downloaded_at, expires_at")
+          .eq("municipality_id", currentProfile.municipality.id)
           .order("created_at", { ascending: false }),
       ]);
       if (documentsResult.error) throw new Error(documentsResult.error.message);
@@ -2081,7 +2085,7 @@
     try {
       const key = await createAnnexDownloadKey(activeEncryptionKey.public_key_pem);
       elements.confirmAnnexGenerationInfo.textContent = "Solicitando al SAE…";
-      const { data, error } = await client.rpc("begin_annex_generation_with_absences", {
+      const { data, error } = await municipalRpc("begin_annex_generation_with_absences", {
         p_session_id: payload.sessionId,
         p_registration_ids: payload.registrationIds,
         p_modality: payload.modality,
@@ -2164,7 +2168,7 @@
       link.remove();
       setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
 
-      const { error: markError } = await client.rpc("mark_annex_generation_downloaded", { p_request_id: request.id });
+      const { error: markError } = await municipalRpc("mark_annex_generation_downloaded", { p_request_id: request.id });
       if (markError) throw new Error(markError.message);
       await client.storage.from(request.storage_bucket).remove([request.storage_path]);
       localStorage.removeItem(annexKeyStorageName(request.id));
@@ -2183,7 +2187,7 @@
     clearNotice();
     try {
       const key = await createAnnexDownloadKey(activeEncryptionKey.public_key_pem);
-      const { data, error } = await client.rpc("begin_annex_document_download", {
+      const { data, error } = await municipalRpc("begin_annex_document_download", {
         p_document_id: documentId,
         p_variant: variant,
         p_key_id: activeEncryptionKey.id,
@@ -2262,8 +2266,7 @@
       link.remove();
       setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
 
-      const { error: markError } = await client.rpc(
-        "mark_annex_document_downloaded",
+      const { error: markError } = await municipalRpc("mark_annex_document_downloaded",
         { p_request_id: request.id },
       );
       if (markError) throw new Error(markError.message);
@@ -2305,7 +2308,7 @@
       if (!activeEncryptionKey) throw new Error("No se puede preparar esta operación de forma segura en este momento.");
       const pdf = await validateAndReadPdf(file);
 
-      const { data: beginData, error: beginError } = await client.rpc("begin_signed_annex_upload", {
+      const { data: beginData, error: beginError } = await municipalRpc("begin_signed_annex_upload", {
         p_session_id: sessionId,
         p_plain_size_bytes: pdf.buffer.byteLength,
         p_plain_sha256: pdf.sha256,
@@ -2333,7 +2336,7 @@
         );
       if (uploadError) throw new Error(uploadError.message);
 
-      const { data: completeData, error: completeError } = await client.rpc("complete_signed_annex_upload", {
+      const { data: completeData, error: completeError } = await municipalRpc("complete_signed_annex_upload", {
         p_document_id: reservation.document_id,
         p_encrypted_key: encrypted.encryptedKey,
         p_iv: encrypted.iv,
@@ -2352,7 +2355,7 @@
         await client.storage.from(reservation.storage_bucket).remove([reservation.storage_path]).catch(() => {});
       }
       if (reservation?.document_id) {
-        await client.rpc("abort_signed_annex_upload", { p_document_id: reservation.document_id }).catch(() => {});
+        await municipalRpc("abort_signed_annex_upload", { p_document_id: reservation.document_id }).catch(() => {});
       }
       showNotice("error", error.message || "No se pudo enviar el Anexo I firmado.", elements.documentUploadNotice);
     } finally {
@@ -2361,24 +2364,192 @@
     }
   }
 
+  function municipalitySelectionKey() {
+    return `incentivos:selected-municipality:${currentUser?.id || "anonymous"}`;
+  }
+
+  async function municipalRpc(name, args = {}) {
+    const municipalityId = currentProfile?.municipality?.id;
+
+    if (!municipalityId) {
+      throw new Error("No hay ningún ayuntamiento seleccionado.");
+    }
+
+    return client.rpc(`${name}_v2`, {
+      p_municipality_id: municipalityId,
+      ...args,
+    });
+  }
+
+  function renderMunicipalitySwitcher() {
+    const wrap = document.getElementById("municipalitySwitcherWrap");
+    const select = document.getElementById("municipalitySwitcher");
+
+    if (!wrap || !select) return;
+
+    select.replaceChildren();
+
+    for (const municipality of availableMunicipalities) {
+      const option = document.createElement("option");
+      option.value = municipality.id;
+      option.textContent = municipality.name;
+      select.appendChild(option);
+    }
+
+    select.value = currentProfile?.municipality?.id || "";
+    wrap.hidden = availableMunicipalities.length < 2;
+  }
+
+  function setCurrentMunicipality(municipality, persist = true) {
+    if (!municipality) {
+      throw new Error("El ayuntamiento seleccionado no es válido.");
+    }
+
+    currentProfile = {
+      ...currentProfile,
+      municipality,
+    };
+
+    elements.municipalityName.textContent = municipality.name;
+
+    const select = document.getElementById("municipalitySwitcher");
+    if (select) select.value = municipality.id;
+
+    if (persist) {
+      sessionStorage.setItem(
+        municipalitySelectionKey(),
+        municipality.id
+      );
+    }
+  }
+
+  async function handleMunicipalitySwitch(event) {
+    const select = event.currentTarget;
+    const nextId = String(select.value || "");
+
+    const nextMunicipality = availableMunicipalities.find(
+      (item) => String(item.id) === nextId
+    );
+
+    if (!nextMunicipality) {
+      showNotice("error", "El ayuntamiento seleccionado no está disponible.");
+      return;
+    }
+
+    if (
+      String(currentProfile?.municipality?.id || "") ===
+      String(nextMunicipality.id)
+    ) {
+      return;
+    }
+
+    const previousMunicipality = currentProfile.municipality;
+
+    select.disabled = true;
+    clearNotice();
+
+    try {
+      setCurrentMunicipality(nextMunicipality);
+
+      await reloadPortalData();
+
+      setActiveSection("dashboardSection");
+      maybeShowMunicipalNotices();
+
+      showNotice(
+        "success",
+        `Ahora estás trabajando con ${nextMunicipality.name}.`
+      );
+    } catch (error) {
+      setCurrentMunicipality(previousMunicipality);
+
+      try {
+        await reloadPortalData();
+      } catch (_) {
+        // Conservamos el error original.
+      }
+
+      showNotice(
+        "error",
+        `No se pudo cambiar de ayuntamiento: ${error.message}`
+      );
+    } finally {
+      select.disabled = false;
+    }
+  }
+
   async function loadProfile() {
     const { data, error } = await client
       .from("profiles")
-      .select(`user_id, full_name, email, role, active, municipality:municipalities (id, code, name)`)
+      .select("user_id, full_name, email, role, active")
       .eq("user_id", currentUser.id)
       .single();
-    if (error) throw new Error(`No se pudo consultar el perfil: ${error.message}`);
+
+    if (error) {
+      throw new Error(
+        `No se pudo consultar el perfil: ${error.message}`
+      );
+    }
+
     if (!data.active) {
       await client.auth.signOut();
-      throw new Error("El usuario existe, pero su acceso municipal está desactivado.");
+      throw new Error(
+        "El usuario existe, pero su acceso municipal está desactivado."
+      );
     }
-    if (!data.municipality) {
+
+    const {
+      data: municipalitiesData,
+      error: municipalitiesError
+    } = await client.rpc("list_my_municipalities");
+
+    if (municipalitiesError) {
+      throw new Error(
+        `No se pudieron consultar los ayuntamientos autorizados: ${municipalitiesError.message}`
+      );
+    }
+
+    availableMunicipalities = Array.isArray(municipalitiesData)
+      ? municipalitiesData
+      : [];
+
+    if (availableMunicipalities.length === 0) {
       await client.auth.signOut();
-      throw new Error("El usuario no está asociado a ningún ayuntamiento.");
+      throw new Error(
+        "El usuario no está asociado a ningún ayuntamiento activo."
+      );
     }
-    currentProfile = data;
-    elements.municipalityName.textContent = data.municipality.name;
-    elements.userSummary.textContent = `${data.full_name || data.email || "Usuario municipal"} · ${data.role}`;
+
+    const savedId = sessionStorage.getItem(
+      municipalitySelectionKey()
+    );
+
+    const selectedMunicipality =
+      availableMunicipalities.find(
+        (item) => String(item.id) === String(savedId)
+      )
+      || availableMunicipalities.find(
+        (item) => item.is_primary
+      )
+      || availableMunicipalities[0];
+
+    currentProfile = {
+      ...data,
+      municipality: selectedMunicipality,
+    };
+
+    elements.municipalityName.textContent =
+      selectedMunicipality.name;
+
+    elements.userSummary.textContent =
+      `${data.full_name || data.email || "Usuario municipal"} · ${data.role}`;
+
+    sessionStorage.setItem(
+      municipalitySelectionKey(),
+      selectedMunicipality.id
+    );
+
+    renderMunicipalitySwitcher();
   }
 
   async function loadEncryptionKey() {
@@ -2444,6 +2615,7 @@
           transferred_to_session:sessions!transferred_to_session_id
             (id, title, session_type, session_date, start_time, end_time, status)
         `)
+        .eq("municipality_id", currentProfile.municipality.id)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       registrations = Array.isArray(data) ? data : [];
@@ -2622,7 +2794,7 @@
       };
       const encrypted = await encryptIdentity(identity, context, activeEncryptionKey.public_key_pem);
       elements.submitInitialRegistration.textContent = "Registrando…";
-      const { error } = await client.rpc("register_initial", {
+      const { error } = await municipalRpc("register_initial", {
         p_session_id: sessionId,
         p_program_id: programId,
         p_display_name: displayName(firstName, firstSurname, secondSurname),
@@ -2668,7 +2840,7 @@
     }
     elements.submitFinalRegistration.disabled = true;
     try {
-      const { error } = await client.rpc("register_final", { p_participant_id: participantId, p_session_id: sessionId, p_program_id: programId });
+      const { error } = await municipalRpc("register_final", { p_participant_id: participantId, p_session_id: sessionId, p_program_id: programId });
       if (error) throw new Error(error.message);
       closeFinalDialog();
       await reloadPortalData();
@@ -2785,7 +2957,7 @@
     elements.confirmChangeSession.textContent = "Cambiando…";
 
     try {
-      const { data, error } = await client.rpc("change_registration_session", {
+      const { data, error } = await municipalRpc("change_registration_session", {
         p_registration_id: registrationToChange.id,
         p_new_session_id: targetSessionId,
       });
@@ -2829,7 +3001,7 @@
     if (!registrationToCancel) return;
     elements.confirmCancelButton.disabled = true;
     try {
-      const { data, error } = await client.rpc("cancel_registration", { p_registration_id: registrationToCancel.id });
+      const { data, error } = await municipalRpc("cancel_registration", { p_registration_id: registrationToCancel.id });
       if (error) throw new Error(error.message);
       if (!data) throw new Error("La inscripción ya no estaba disponible para cancelar.");
       closeCancelDialog();
@@ -2914,6 +3086,10 @@
   function bindEvents() {
     elements.loginForm.addEventListener("submit", handleLogin);
     elements.logoutButton.addEventListener("click", handleLogout);
+
+    document
+      .getElementById("municipalitySwitcher")
+      ?.addEventListener("change", handleMunicipalitySwitch);
     elements.closeMunicipalNoticesDialog?.addEventListener("click", closeMunicipalNoticesDialog);
     elements.acceptMunicipalNotices?.addEventListener("click", acceptMunicipalNotices);
     elements.refreshButton.addEventListener("click", async () => {
