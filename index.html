@@ -7,6 +7,56 @@
   <title>Incentivos al empleo · Portal municipal</title>
   <link rel="icon" type="image/webp" href="./assets/incentivos-empleo.webp?v=20260830-1">
   <link rel="stylesheet" href="./styles.css?v=20260828-v1-9-8-pendientes-hide-empty">
+
+  <style>
+    /* Modal obligatorio de cambio de contraseña */
+    #initialPasswordChangeDialog {
+      width: min(520px, calc(100vw - 32px));
+      max-width: 520px;
+      padding: 24px 26px;
+      box-sizing: border-box;
+    }
+
+    #initialPasswordChangeDialog #initialPasswordChangeForm {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin: 0;
+    }
+
+    #initialPasswordChangeDialog .card-heading {
+      margin-bottom: 4px;
+    }
+
+    #initialPasswordChangeDialog .card-heading p {
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+
+    #initialPasswordChangeDialog label {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    #initialPasswordChangeDialog input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #initialPasswordChangeDialog .support-note {
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 600px) {
+      #initialPasswordChangeDialog {
+        width: calc(100vw - 24px);
+        padding: 20px;
+      }
+    }
+  </style>
+
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
