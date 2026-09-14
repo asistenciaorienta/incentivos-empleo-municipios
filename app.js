@@ -3042,6 +3042,255 @@
     }
   }
 
+  // =========================================================
+  // MODO SOPORTE
+  //
+  // Solo se activa si:
+  // 1. existe un token generado por la aplicación interna;
+  // 2. el usuario está realmente autenticado;
+  // 3. Supabase confirma que el token corresponde a ese UUID.
+  //
+  // El token real solo permanece en sessionStorage de esta pestaña.
+  // =========================================================
+
+  const SUPPORT_TOKEN_SESSION_KEY =
+    "incentivos_empleo_support_token";
+
+  let supportModeActive = false;
+  let supportModeData = null;
+
+
+  function readSupportTokenFromUrl() {
+    try {
+      const url =
+        new URL(window.location.href);
+
+      const requestedSupportMode =
+        url.searchParams.get("modo_soporte") === "1";
+
+      const token =
+        String(
+          url.searchParams.get("support_token") || ""
+        ).trim();
+
+      if (
+        requestedSupportMode
+        && token
+      ) {
+        sessionStorage.setItem(
+          SUPPORT_TOKEN_SESSION_KEY,
+          token
+        );
+
+        /*
+         * Quitamos inmediatamente el token de la barra
+         * de direcciones, conservando el hash de Supabase.
+         */
+        url.searchParams.delete(
+          "support_token"
+        );
+
+        url.searchParams.delete(
+          "modo_soporte"
+        );
+
+        window.history.replaceState(
+          {},
+          document.title,
+          url.pathname
+            + url.search
+            + url.hash
+        );
+
+        return token;
+      }
+    } catch (_) {
+      // Sin acción.
+    }
+
+    return "";
+  }
+
+
+  function getStoredSupportToken() {
+    try {
+      return String(
+        sessionStorage.getItem(
+          SUPPORT_TOKEN_SESSION_KEY
+        ) || ""
+      ).trim();
+
+    } catch (_) {
+      return "";
+    }
+  }
+
+
+  function removeSupportBanner() {
+    const banner =
+      document.getElementById(
+        "supportModeBanner"
+      );
+
+    if (banner) {
+      banner.remove();
+    }
+
+    document.body.classList.remove(
+      "support-mode-active"
+    );
+  }
+
+
+  function clearSupportMode() {
+    supportModeActive = false;
+    supportModeData = null;
+
+    try {
+      sessionStorage.removeItem(
+        SUPPORT_TOKEN_SESSION_KEY
+      );
+    } catch (_) {}
+
+    removeSupportBanner();
+  }
+
+
+  function renderSupportBanner() {
+    removeSupportBanner();
+
+    if (!supportModeActive) {
+      return;
+    }
+
+    const banner =
+      document.createElement("div");
+
+    banner.id =
+      "supportModeBanner";
+
+    banner.setAttribute(
+      "role",
+      "status"
+    );
+
+    banner.style.cssText = [
+      "position:fixed",
+      "top:0",
+      "left:0",
+      "right:0",
+      "z-index:99999",
+      "box-sizing:border-box",
+      "padding:11px 18px",
+      "background:#7c2d12",
+      "color:#fff",
+      "font-family:system-ui,sans-serif",
+      "font-size:14px",
+      "font-weight:600",
+      "text-align:center",
+      "box-shadow:0 2px 10px rgba(0,0,0,.25)"
+    ].join(";");
+
+    const actor =
+      supportModeData?.actor_name
+      || supportModeData?.actor_email
+      || "personal del SAE";
+
+    const municipalUser =
+      currentProfile?.email
+      || currentUser?.email
+      || "usuario municipal";
+
+    banner.textContent =
+      "MODO SOPORTE · "
+      + actor
+      + " está utilizando realmente la cuenta "
+      + municipalUser
+      + ". Las actuaciones realizadas tendrán efecto real.";
+
+    document.body.prepend(
+      banner
+    );
+
+    document.body.classList.add(
+      "support-mode-active"
+    );
+
+    /*
+     * Dejamos espacio para que la banda no tape
+     * la cabecera del portal.
+     */
+    if (
+      !document.getElementById(
+        "supportModeBannerStyle"
+      )
+    ) {
+      const style =
+        document.createElement("style");
+
+      style.id =
+        "supportModeBannerStyle";
+
+      style.textContent = `
+        body.support-mode-active {
+          padding-top: 48px !important;
+        }
+      `;
+
+      document.head.appendChild(
+        style
+      );
+    }
+  }
+
+
+  async function validateSupportMode() {
+    supportModeActive = false;
+    supportModeData = null;
+
+    const token =
+      readSupportTokenFromUrl()
+      || getStoredSupportToken();
+
+    if (!token) {
+      removeSupportBanner();
+      return false;
+    }
+
+    try {
+      const {
+        data,
+        error
+      } = await client.rpc(
+        "validate_support_impersonation",
+        {
+          p_token: token
+        }
+      );
+
+      if (
+        error
+        || !data
+        || data.ok !== true
+      ) {
+        clearSupportMode();
+        return false;
+      }
+
+      supportModeActive = true;
+      supportModeData = data;
+
+      renderSupportBanner();
+
+      return true;
+
+    } catch (_) {
+      clearSupportMode();
+      return false;
+    }
+  }
+
+
   async function enterPortal(user) {
     clearNotice();
     currentUser = user;
@@ -3050,11 +3299,18 @@
     try {
       await loadProfile();
 
-      if (currentProfile?.must_change_password) {
+      const isSupportSession =
+        await validateSupportMode();
+
+      if (
+        currentProfile?.must_change_password
+        && !isSupportSession
+      ) {
         setPortalVisible(false);
         openInitialPasswordChangeDialog();
         return;
       }
+
       await loadEncryptionKey();
       await reloadPortalData();
       maybeShowMunicipalNotices();
@@ -3717,6 +3973,7 @@
     try {
       const { error } = await client.auth.signOut();
       if (error) throw error;
+      clearSupportMode();
       currentUser = null;
       currentProfile = null;
       elements.password.value = "";
@@ -3994,6 +4251,7 @@
     bindEvents();
     client.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session) {
+        clearSupportMode();
         currentUser = null;
         currentProfile = null;
         setPortalVisible(false);
