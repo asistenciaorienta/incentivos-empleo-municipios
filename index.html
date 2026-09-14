@@ -381,6 +381,77 @@
 
   <footer class="site-footer"><p>Dirección Provincial del SAE en Granada</p></footer>
 
+  <dialog
+    id="initialPasswordChangeDialog"
+    class="modal-dialog compact-dialog"
+    aria-labelledby="initialPasswordChangeTitle"
+  >
+    <form id="initialPasswordChangeForm" class="form-stack" novalidate>
+      <div class="card-heading">
+        <p class="section-kicker">Primer acceso</p>
+        <h2 id="initialPasswordChangeTitle">Cambia tu contraseña</h2>
+        <p>
+          La contraseña recibida es temporal. Para continuar debes sustituirla
+          por una contraseña personal.
+        </p>
+      </div>
+
+      <div
+        id="initialPasswordChangeNotice"
+        class="notice"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+
+      <label>
+        <span>Nueva contraseña</span>
+        <input
+          id="newPassword"
+          name="newPassword"
+          type="password"
+          autocomplete="new-password"
+          minlength="12"
+          required
+        >
+      </label>
+
+      <label>
+        <span>Repite la nueva contraseña</span>
+        <input
+          id="confirmNewPassword"
+          name="confirmNewPassword"
+          type="password"
+          autocomplete="new-password"
+          minlength="12"
+          required
+        >
+      </label>
+
+      <p class="support-note">
+        Debe tener al menos 12 caracteres e incluir una mayúscula,
+        una minúscula, un número y un símbolo. Debe ser distinta de
+        la contraseña inicial.
+      </p>
+
+      <button
+        id="initialPasswordChangeSubmit"
+        class="button primary"
+        type="submit"
+      >
+        Guardar nueva contraseña
+      </button>
+
+      <button
+        id="initialPasswordChangeLogout"
+        class="button secondary"
+        type="button"
+      >
+        Cerrar sesión
+      </button>
+    </form>
+  </dialog>
+
   <dialog id="municipalNoticesDialog" class="modal-dialog compact-dialog municipal-notices-dialog" aria-labelledby="municipalNoticesTitle">
     <div class="modal-card municipal-notices-card">
       <div class="modal-heading">
@@ -690,6 +761,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260911-multiayto-v1"></script>
+  <script src="./app.js?v=20260914-password-v1"></script>
 </body>
 </html>

@@ -38,6 +38,15 @@
     loginButton: document.querySelector("#loginButton"),
     email: document.querySelector("#email"),
     password: document.querySelector("#password"),
+
+    initialPasswordChangeDialog: document.querySelector("#initialPasswordChangeDialog"),
+    initialPasswordChangeForm: document.querySelector("#initialPasswordChangeForm"),
+    initialPasswordChangeNotice: document.querySelector("#initialPasswordChangeNotice"),
+    newPassword: document.querySelector("#newPassword"),
+    confirmNewPassword: document.querySelector("#confirmNewPassword"),
+    initialPasswordChangeSubmit: document.querySelector("#initialPasswordChangeSubmit"),
+    initialPasswordChangeLogout: document.querySelector("#initialPasswordChangeLogout"),
+
     logoutButton: document.querySelector("#logoutButton"),
     globalBackToMenu: document.querySelector("#globalBackToMenu"),
     refreshButton: document.querySelector("#refreshButton"),
@@ -2481,7 +2490,7 @@
   async function loadProfile() {
     const { data, error } = await client
       .from("profiles")
-      .select("user_id, full_name, email, role, active")
+      .select("user_id, full_name, email, role, active, must_change_password")
       .eq("user_id", currentUser.id)
       .single();
 
@@ -3022,12 +3031,239 @@
     setActiveSection("dashboardSection");
     try {
       await loadProfile();
+
+      if (currentProfile?.must_change_password) {
+        setPortalVisible(false);
+        openInitialPasswordChangeDialog();
+        return;
+      }
       await loadEncryptionKey();
       await reloadPortalData();
       maybeShowMunicipalNotices();
     } catch (error) {
       setPortalVisible(false);
       showNotice("error", error instanceof Error ? error.message : "No se pudo abrir el portal.");
+    }
+  }
+
+  function clearInitialPasswordChangeNotice() {
+    const notice = elements.initialPasswordChangeNotice;
+
+    if (!notice) return;
+
+    notice.hidden = true;
+    notice.textContent = "";
+    notice.className = "notice";
+  }
+
+  function showInitialPasswordChangeNotice(type, message) {
+    const notice = elements.initialPasswordChangeNotice;
+
+    if (!notice) return;
+
+    notice.className = `notice ${type}`;
+    notice.textContent = message;
+    notice.hidden = false;
+  }
+
+  function setInitialPasswordChangeBusy(isBusy) {
+    if (elements.newPassword) {
+      elements.newPassword.disabled = isBusy;
+    }
+
+    if (elements.confirmNewPassword) {
+      elements.confirmNewPassword.disabled = isBusy;
+    }
+
+    if (elements.initialPasswordChangeSubmit) {
+      elements.initialPasswordChangeSubmit.disabled = isBusy;
+      elements.initialPasswordChangeSubmit.textContent =
+        isBusy
+          ? "Guardando…"
+          : "Guardar nueva contraseña";
+    }
+
+    if (elements.initialPasswordChangeLogout) {
+      elements.initialPasswordChangeLogout.disabled = isBusy;
+    }
+  }
+
+  function openInitialPasswordChangeDialog() {
+    clearInitialPasswordChangeNotice();
+
+    if (elements.newPassword) {
+      elements.newPassword.value = "";
+    }
+
+    if (elements.confirmNewPassword) {
+      elements.confirmNewPassword.value = "";
+    }
+
+    if (
+      elements.initialPasswordChangeDialog
+      && !elements.initialPasswordChangeDialog.open
+    ) {
+      elements.initialPasswordChangeDialog.showModal();
+    }
+
+    window.setTimeout(() => {
+      elements.newPassword?.focus();
+    }, 0);
+  }
+
+  async function handleInitialPasswordChange(event) {
+    event.preventDefault();
+
+    clearInitialPasswordChangeNotice();
+
+    const newPassword =
+      elements.newPassword?.value || "";
+
+    const confirmation =
+      elements.confirmNewPassword?.value || "";
+
+    if (newPassword.length < 12) {
+      showInitialPasswordChangeNotice(
+        "warning",
+        "La nueva contraseña debe tener al menos 12 caracteres."
+      );
+      return;
+    }
+
+    if (
+      !/[a-z]/.test(newPassword)
+      || !/[A-Z]/.test(newPassword)
+      || !/[0-9]/.test(newPassword)
+      || !/[^A-Za-z0-9]/.test(newPassword)
+    ) {
+      showInitialPasswordChangeNotice(
+        "warning",
+        "Incluye al menos una mayúscula, una minúscula, un número y un símbolo."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmation) {
+      showInitialPasswordChangeNotice(
+        "warning",
+        "Las dos contraseñas no coinciden."
+      );
+      return;
+    }
+
+    setInitialPasswordChangeBusy(true);
+
+    try {
+      const {
+        error: passwordError
+      } = await client.auth.updateUser({
+        password: newPassword
+      });
+
+      if (passwordError) {
+        if (
+          passwordError.code === "same_password"
+          || /same password/i.test(passwordError.message || "")
+        ) {
+          throw new Error(
+            "La nueva contraseña debe ser distinta de la contraseña inicial."
+          );
+        }
+
+        throw new Error(
+          passwordError.message
+          || "No se pudo cambiar la contraseña."
+        );
+      }
+
+      const {
+        data: completed,
+        error: completeError
+      } = await client.rpc(
+        "complete_initial_password_change"
+      );
+
+      if (completeError) {
+        throw new Error(
+          "La contraseña se ha cambiado, pero no se pudo completar la activación. "
+          + "Cierra sesión y vuelve a entrar con la nueva contraseña."
+        );
+      }
+
+      if (!completed) {
+        throw new Error(
+          "No se pudo confirmar el cambio de contraseña."
+        );
+      }
+
+      if (currentProfile) {
+        currentProfile.must_change_password = false;
+      }
+
+      elements.newPassword.value = "";
+      elements.confirmNewPassword.value = "";
+
+      if (elements.initialPasswordChangeDialog?.open) {
+        elements.initialPasswordChangeDialog.close();
+      }
+
+      await enterPortal(currentUser);
+
+      showNotice(
+        "success",
+        "Contraseña actualizada correctamente. Ya puedes utilizar el portal."
+      );
+
+    } catch (error) {
+      showInitialPasswordChangeNotice(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "No se pudo cambiar la contraseña."
+      );
+
+    } finally {
+      setInitialPasswordChangeBusy(false);
+    }
+  }
+
+  async function handleInitialPasswordChangeLogout() {
+    clearInitialPasswordChangeNotice();
+
+    if (elements.initialPasswordChangeLogout) {
+      elements.initialPasswordChangeLogout.disabled = true;
+    }
+
+    try {
+      const { error } = await client.auth.signOut();
+
+      if (error) throw error;
+
+      currentUser = null;
+      currentProfile = null;
+      availableMunicipalities = [];
+
+      if (elements.initialPasswordChangeDialog?.open) {
+        elements.initialPasswordChangeDialog.close();
+      }
+
+      setPortalVisible(false);
+
+      showNotice(
+        "success",
+        "La sesión se ha cerrado correctamente."
+      );
+
+    } catch (error) {
+      showInitialPasswordChangeNotice(
+        "error",
+        `No se pudo cerrar la sesión: ${error.message}`
+      );
+
+    } finally {
+      if (elements.initialPasswordChangeLogout) {
+        elements.initialPasswordChangeLogout.disabled = false;
+      }
     }
   }
 
@@ -3086,6 +3322,17 @@
   function bindEvents() {
     elements.loginForm.addEventListener("submit", handleLogin);
     elements.logoutButton.addEventListener("click", handleLogout);
+
+    elements.initialPasswordChangeForm
+      ?.addEventListener("submit", handleInitialPasswordChange);
+
+    elements.initialPasswordChangeLogout
+      ?.addEventListener("click", handleInitialPasswordChangeLogout);
+
+    elements.initialPasswordChangeDialog
+      ?.addEventListener("cancel", (event) => {
+        event.preventDefault();
+      });
 
     document
       .getElementById("municipalitySwitcher")
