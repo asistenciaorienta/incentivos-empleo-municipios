@@ -57,6 +57,55 @@
     }
   </style>
 
+  <style>
+    /* Modal de cambio voluntario de contraseña */
+    #changePasswordDialog {
+      width: min(520px, calc(100vw - 32px));
+      max-width: 520px;
+      padding: 24px 26px;
+      box-sizing: border-box;
+    }
+
+    #changePasswordDialog #changePasswordForm {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin: 0;
+    }
+
+    #changePasswordDialog .card-heading {
+      margin-bottom: 4px;
+    }
+
+    #changePasswordDialog .card-heading p {
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+
+    #changePasswordDialog label {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    #changePasswordDialog input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #changePasswordDialog .support-note {
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 600px) {
+      #changePasswordDialog {
+        width: calc(100vw - 24px);
+        padding: 20px;
+      }
+    }
+  </style>
+
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -134,6 +183,7 @@
           </label>
         </div>
         <button id="globalBackToMenu" class="button secondary header-back-button js-back-dashboard" type="button" hidden>← Volver al menú principal</button>
+        <button id="changePasswordButton" class="button secondary" type="button">Cambiar contraseña</button>
         <button id="logoutButton" class="button secondary" type="button">Cerrar sesión</button>
       </div>
 
@@ -430,6 +480,86 @@
   </main>
 
   <footer class="site-footer"><p>Dirección Provincial del SAE en Granada</p></footer>
+
+  <dialog
+    id="changePasswordDialog"
+    class="modal-dialog compact-dialog"
+    aria-labelledby="changePasswordTitle"
+  >
+    <form id="changePasswordForm" class="form-stack" novalidate>
+      <div class="card-heading">
+        <p class="section-kicker">Seguridad</p>
+        <h2 id="changePasswordTitle">Cambiar contraseña</h2>
+        <p>
+          Introduce tu contraseña actual y elige una nueva.
+        </p>
+      </div>
+
+      <div
+        id="changePasswordNotice"
+        class="notice"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+
+      <label>
+        <span>Contraseña actual</span>
+        <input
+          id="currentPassword"
+          name="currentPassword"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
+      </label>
+
+      <label>
+        <span>Nueva contraseña</span>
+        <input
+          id="voluntaryNewPassword"
+          name="voluntaryNewPassword"
+          type="password"
+          autocomplete="new-password"
+          minlength="12"
+          required
+        >
+      </label>
+
+      <label>
+        <span>Repite la nueva contraseña</span>
+        <input
+          id="voluntaryConfirmPassword"
+          name="voluntaryConfirmPassword"
+          type="password"
+          autocomplete="new-password"
+          minlength="12"
+          required
+        >
+      </label>
+
+      <p class="support-note">
+        Debe tener al menos 12 caracteres e incluir una mayúscula,
+        una minúscula, un número y un símbolo.
+      </p>
+
+      <button
+        id="submitChangePassword"
+        class="button primary"
+        type="submit"
+      >
+        Cambiar contraseña
+      </button>
+
+      <button
+        id="closeChangePasswordDialog"
+        class="button secondary"
+        type="button"
+      >
+        Cancelar
+      </button>
+    </form>
+  </dialog>
 
   <dialog
     id="initialPasswordChangeDialog"
@@ -811,6 +941,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260914-password-v1"></script>
+  <script src="./app.js?v=20260914-password-v2"></script>
 </body>
 </html>

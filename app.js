@@ -47,6 +47,16 @@
     initialPasswordChangeSubmit: document.querySelector("#initialPasswordChangeSubmit"),
     initialPasswordChangeLogout: document.querySelector("#initialPasswordChangeLogout"),
 
+    changePasswordButton: document.querySelector("#changePasswordButton"),
+    changePasswordDialog: document.querySelector("#changePasswordDialog"),
+    changePasswordForm: document.querySelector("#changePasswordForm"),
+    changePasswordNotice: document.querySelector("#changePasswordNotice"),
+    currentPassword: document.querySelector("#currentPassword"),
+    voluntaryNewPassword: document.querySelector("#voluntaryNewPassword"),
+    voluntaryConfirmPassword: document.querySelector("#voluntaryConfirmPassword"),
+    closeChangePasswordDialog: document.querySelector("#closeChangePasswordDialog"),
+    submitChangePassword: document.querySelector("#submitChangePassword"),
+
     logoutButton: document.querySelector("#logoutButton"),
     globalBackToMenu: document.querySelector("#globalBackToMenu"),
     refreshButton: document.querySelector("#refreshButton"),
@@ -3267,6 +3277,241 @@
     }
   }
 
+  function clearChangePasswordNotice() {
+    const notice = elements.changePasswordNotice;
+
+    if (!notice) return;
+
+    notice.hidden = true;
+    notice.textContent = "";
+    notice.className = "notice";
+  }
+
+  function showChangePasswordNotice(type, message) {
+    const notice = elements.changePasswordNotice;
+
+    if (!notice) return;
+
+    notice.className = `notice ${type}`;
+    notice.textContent = message;
+    notice.hidden = false;
+  }
+
+  function setChangePasswordBusy(isBusy) {
+    if (elements.currentPassword) {
+      elements.currentPassword.disabled = isBusy;
+    }
+
+    if (elements.voluntaryNewPassword) {
+      elements.voluntaryNewPassword.disabled = isBusy;
+    }
+
+    if (elements.voluntaryConfirmPassword) {
+      elements.voluntaryConfirmPassword.disabled = isBusy;
+    }
+
+    if (elements.submitChangePassword) {
+      elements.submitChangePassword.disabled = isBusy;
+      elements.submitChangePassword.textContent =
+        isBusy ? "Guardando…" : "Cambiar contraseña";
+    }
+
+    if (elements.closeChangePasswordDialog) {
+      elements.closeChangePasswordDialog.disabled = isBusy;
+    }
+  }
+
+  function openChangePasswordDialog() {
+    clearChangePasswordNotice();
+
+    elements.currentPassword.value = "";
+    elements.voluntaryNewPassword.value = "";
+    elements.voluntaryConfirmPassword.value = "";
+
+    if (
+      elements.changePasswordDialog
+      && !elements.changePasswordDialog.open
+    ) {
+      elements.changePasswordDialog.showModal();
+    }
+
+    window.setTimeout(() => {
+      elements.currentPassword?.focus();
+    }, 0);
+  }
+
+  function closeVoluntaryChangePasswordDialog() {
+    if (elements.changePasswordDialog?.open) {
+      elements.changePasswordDialog.close();
+    }
+
+    clearChangePasswordNotice();
+
+    if (elements.currentPassword) {
+      elements.currentPassword.value = "";
+    }
+
+    if (elements.voluntaryNewPassword) {
+      elements.voluntaryNewPassword.value = "";
+    }
+
+    if (elements.voluntaryConfirmPassword) {
+      elements.voluntaryConfirmPassword.value = "";
+    }
+  }
+
+  async function handleVoluntaryPasswordChange(event) {
+    event.preventDefault();
+
+    clearChangePasswordNotice();
+
+    const currentPassword =
+      elements.currentPassword?.value || "";
+
+    const newPassword =
+      elements.voluntaryNewPassword?.value || "";
+
+    const confirmation =
+      elements.voluntaryConfirmPassword?.value || "";
+
+    if (!currentPassword) {
+      showChangePasswordNotice(
+        "warning",
+        "Introduce tu contraseña actual."
+      );
+      return;
+    }
+
+    if (newPassword.length < 12) {
+      showChangePasswordNotice(
+        "warning",
+        "La nueva contraseña debe tener al menos 12 caracteres."
+      );
+      return;
+    }
+
+    if (
+      !/[a-z]/.test(newPassword)
+      || !/[A-Z]/.test(newPassword)
+      || !/[0-9]/.test(newPassword)
+      || !/[^A-Za-z0-9]/.test(newPassword)
+    ) {
+      showChangePasswordNotice(
+        "warning",
+        "Incluye al menos una mayúscula, una minúscula, un número y un símbolo."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmation) {
+      showChangePasswordNotice(
+        "warning",
+        "Las dos contraseñas nuevas no coinciden."
+      );
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      showChangePasswordNotice(
+        "warning",
+        "La nueva contraseña debe ser distinta de la contraseña actual."
+      );
+      return;
+    }
+
+    const email =
+      currentUser?.email
+      || currentProfile?.email;
+
+    if (!email) {
+      showChangePasswordNotice(
+        "error",
+        "No se ha podido identificar el correo del usuario."
+      );
+      return;
+    }
+
+    setChangePasswordBusy(true);
+
+    try {
+      /*
+       * Verificamos expresamente que conoce la contraseña actual.
+       */
+      const {
+        data: verificationData,
+        error: verificationError
+      } = await client.auth.signInWithPassword({
+        email,
+        password: currentPassword
+      });
+
+      if (verificationError || !verificationData?.user) {
+        throw new Error(
+          "La contraseña actual no es correcta."
+        );
+      }
+
+      /*
+       * La sesión sigue correspondiendo al mismo usuario.
+       */
+      if (
+        currentUser?.id
+        && verificationData.user.id !== currentUser.id
+      ) {
+        throw new Error(
+          "No se ha podido verificar la identidad del usuario."
+        );
+      }
+
+      const {
+        data: updateData,
+        error: updateError
+      } = await client.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) {
+        if (
+          updateError.code === "same_password"
+          || /same password/i.test(updateError.message || "")
+        ) {
+          throw new Error(
+            "La nueva contraseña debe ser distinta de la contraseña actual."
+          );
+        }
+
+        throw new Error(
+          updateError.message
+          || "No se pudo cambiar la contraseña."
+        );
+      }
+
+      if (!updateData?.user) {
+        throw new Error(
+          "No se pudo confirmar el cambio de contraseña."
+        );
+      }
+
+      closeVoluntaryChangePasswordDialog();
+
+      showNotice(
+        "success",
+        "Contraseña cambiada correctamente."
+      );
+
+    } catch (error) {
+      showChangePasswordNotice(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "No se pudo cambiar la contraseña."
+      );
+
+    } finally {
+      setChangePasswordBusy(false);
+    }
+  }
+
   async function restoreSession() {
     const { data, error } = await client.auth.getSession();
     if (error) {
@@ -3322,6 +3567,15 @@
   function bindEvents() {
     elements.loginForm.addEventListener("submit", handleLogin);
     elements.logoutButton.addEventListener("click", handleLogout);
+
+    elements.changePasswordButton
+      ?.addEventListener("click", openChangePasswordDialog);
+
+    elements.changePasswordForm
+      ?.addEventListener("submit", handleVoluntaryPasswordChange);
+
+    elements.closeChangePasswordDialog
+      ?.addEventListener("click", closeVoluntaryChangePasswordDialog);
 
     elements.initialPasswordChangeForm
       ?.addEventListener("submit", handleInitialPasswordChange);
