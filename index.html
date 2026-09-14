@@ -106,6 +106,70 @@
     }
   </style>
 
+  <style>
+    /* Recuperación manual de contraseña */
+    .forgot-password-link {
+      border: 0;
+      padding: 4px 0;
+      margin: 2px auto 0;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .forgot-password-link:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    #passwordResetRequestDialog {
+      width: min(520px, calc(100vw - 32px));
+      max-width: 520px;
+      padding: 24px 26px;
+      box-sizing: border-box;
+    }
+
+    #passwordResetRequestDialog #passwordResetRequestForm {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin: 0;
+    }
+
+    #passwordResetRequestDialog .card-heading {
+      margin-bottom: 4px;
+    }
+
+    #passwordResetRequestDialog .card-heading p {
+      margin-bottom: 0;
+      line-height: 1.5;
+    }
+
+    #passwordResetRequestDialog label {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    #passwordResetRequestDialog input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #passwordResetRequestDialog .support-note {
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 600px) {
+      #passwordResetRequestDialog {
+        width: calc(100vw - 24px);
+        padding: 20px;
+      }
+    }
+  </style>
+
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -145,7 +209,15 @@
             <input id="password" name="password" type="password" autocomplete="current-password" required>
           </label>
           <button id="loginButton" class="button primary" type="submit">Entrar</button>
-        </form>
+
+      <button
+        id="forgotPasswordButton"
+        class="forgot-password-link"
+        type="button"
+      >
+        ¿Has olvidado tu contraseña?
+      </button>
+</form>
 
         <p class="support-note">El acceso está limitado a usuarios municipales autorizados.</p>
       </article>
@@ -480,6 +552,71 @@
   </main>
 
   <footer class="site-footer"><p>Dirección Provincial del SAE en Granada</p></footer>
+
+  <dialog
+    id="passwordResetRequestDialog"
+    class="modal-dialog compact-dialog"
+    aria-labelledby="passwordResetRequestTitle"
+  >
+    <form
+      id="passwordResetRequestForm"
+      class="form-stack"
+      novalidate
+    >
+      <div class="card-heading">
+        <p class="section-kicker">Acceso</p>
+        <h2 id="passwordResetRequestTitle">
+          He olvidado mi contraseña
+        </h2>
+
+        <p>
+          Introduce el correo electrónico con el que accedes a la aplicación.
+          La Dirección Provincial tramitará la solicitud de restablecimiento.
+        </p>
+      </div>
+
+      <div
+        id="passwordResetRequestNotice"
+        class="notice"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+
+      <label>
+        <span>Correo electrónico</span>
+        <input
+          id="passwordResetRequestEmail"
+          name="passwordResetRequestEmail"
+          type="email"
+          autocomplete="email"
+          maxlength="320"
+          required
+        >
+      </label>
+
+      <p class="support-note">
+        Por seguridad, la aplicación no indicará si el correo introducido
+        corresponde o no a un usuario autorizado.
+      </p>
+
+      <button
+        id="passwordResetRequestSubmit"
+        class="button primary"
+        type="submit"
+      >
+        Solicitar restablecimiento
+      </button>
+
+      <button
+        id="closePasswordResetRequestDialog"
+        class="button secondary"
+        type="button"
+      >
+        Cerrar
+      </button>
+    </form>
+  </dialog>
 
   <dialog
     id="changePasswordDialog"
@@ -941,6 +1078,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260914-password-v2"></script>
+  <script src="./app.js?v=20260914-password-v3"></script>
 </body>
 </html>

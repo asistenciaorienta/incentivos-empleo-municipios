@@ -47,6 +47,14 @@
     initialPasswordChangeSubmit: document.querySelector("#initialPasswordChangeSubmit"),
     initialPasswordChangeLogout: document.querySelector("#initialPasswordChangeLogout"),
 
+    forgotPasswordButton: document.querySelector("#forgotPasswordButton"),
+    passwordResetRequestDialog: document.querySelector("#passwordResetRequestDialog"),
+    passwordResetRequestForm: document.querySelector("#passwordResetRequestForm"),
+    passwordResetRequestEmail: document.querySelector("#passwordResetRequestEmail"),
+    passwordResetRequestNotice: document.querySelector("#passwordResetRequestNotice"),
+    passwordResetRequestSubmit: document.querySelector("#passwordResetRequestSubmit"),
+    closePasswordResetRequestDialog: document.querySelector("#closePasswordResetRequestDialog"),
+
     changePasswordButton: document.querySelector("#changePasswordButton"),
     changePasswordDialog: document.querySelector("#changePasswordDialog"),
     changePasswordForm: document.querySelector("#changePasswordForm"),
@@ -3277,6 +3285,163 @@
     }
   }
 
+  function clearPasswordResetRequestNotice() {
+    const notice = elements.passwordResetRequestNotice;
+
+    if (!notice) return;
+
+    notice.hidden = true;
+    notice.textContent = "";
+    notice.className = "notice";
+  }
+
+  function showPasswordResetRequestNotice(type, message) {
+    const notice = elements.passwordResetRequestNotice;
+
+    if (!notice) return;
+
+    notice.className = `notice ${type}`;
+    notice.textContent = message;
+    notice.hidden = false;
+  }
+
+  function setPasswordResetRequestBusy(isBusy) {
+    if (elements.passwordResetRequestEmail) {
+      elements.passwordResetRequestEmail.disabled = isBusy;
+    }
+
+    if (elements.passwordResetRequestSubmit) {
+      elements.passwordResetRequestSubmit.disabled = isBusy;
+      elements.passwordResetRequestSubmit.textContent =
+        isBusy ? "Enviando solicitud…" : "Solicitar restablecimiento";
+    }
+
+    if (elements.closePasswordResetRequestDialog) {
+      elements.closePasswordResetRequestDialog.disabled = isBusy;
+    }
+  }
+
+  function openPasswordResetRequestDialog() {
+    clearPasswordResetRequestNotice();
+
+    if (elements.passwordResetRequestEmail) {
+      elements.passwordResetRequestEmail.value = "";
+      elements.passwordResetRequestEmail.disabled = false;
+    }
+
+    if (elements.passwordResetRequestSubmit) {
+      elements.passwordResetRequestSubmit.disabled = false;
+      elements.passwordResetRequestSubmit.textContent =
+        "Solicitar restablecimiento";
+    }
+
+    if (
+      elements.passwordResetRequestDialog
+      && !elements.passwordResetRequestDialog.open
+    ) {
+      elements.passwordResetRequestDialog.showModal();
+    }
+
+    window.setTimeout(() => {
+      elements.passwordResetRequestEmail?.focus();
+    }, 0);
+  }
+
+  function closePasswordResetRequestDialog() {
+    if (elements.passwordResetRequestDialog?.open) {
+      elements.passwordResetRequestDialog.close();
+    }
+
+    clearPasswordResetRequestNotice();
+
+    if (elements.passwordResetRequestEmail) {
+      elements.passwordResetRequestEmail.value = "";
+    }
+  }
+
+  async function handlePasswordResetRequest(event) {
+    event.preventDefault();
+
+    clearPasswordResetRequestNotice();
+
+    const email =
+      (elements.passwordResetRequestEmail?.value || "")
+        .trim()
+        .toLowerCase();
+
+    if (
+      !email
+      || email.length > 320
+      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      showPasswordResetRequestNotice(
+        "warning",
+        "Introduce un correo electrónico válido."
+      );
+      return;
+    }
+
+    setPasswordResetRequestBusy(true);
+
+    try {
+      const { error } = await client.rpc(
+        "request_password_reset",
+        {
+          p_email: email
+        }
+      );
+
+      if (error) {
+        throw new Error(
+          "No se ha podido registrar la solicitud. Inténtalo de nuevo más tarde."
+        );
+      }
+
+      /*
+       * IMPORTANTE:
+       * El mensaje es siempre el mismo exista o no exista la cuenta.
+       * Así evitamos revelar qué correos están dados de alta.
+       */
+      showPasswordResetRequestNotice(
+        "success",
+        "Solicitud recibida. Si el correo corresponde a un usuario autorizado, "
+        + "la Dirección Provincial tramitará el restablecimiento y facilitará "
+        + "una contraseña temporal."
+      );
+
+      if (elements.passwordResetRequestEmail) {
+        elements.passwordResetRequestEmail.disabled = true;
+      }
+
+      if (elements.passwordResetRequestSubmit) {
+        elements.passwordResetRequestSubmit.disabled = true;
+        elements.passwordResetRequestSubmit.textContent =
+          "Solicitud registrada";
+      }
+
+      if (elements.closePasswordResetRequestDialog) {
+        elements.closePasswordResetRequestDialog.disabled = false;
+      }
+
+    } catch (error) {
+      showPasswordResetRequestNotice(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "No se ha podido registrar la solicitud."
+      );
+
+    } finally {
+      if (
+        elements.passwordResetRequestSubmit
+        && elements.passwordResetRequestSubmit.textContent !==
+          "Solicitud registrada"
+      ) {
+        setPasswordResetRequestBusy(false);
+      }
+    }
+  }
+
   function clearChangePasswordNotice() {
     const notice = elements.changePasswordNotice;
 
@@ -3567,6 +3732,15 @@
   function bindEvents() {
     elements.loginForm.addEventListener("submit", handleLogin);
     elements.logoutButton.addEventListener("click", handleLogout);
+
+    elements.forgotPasswordButton
+      ?.addEventListener("click", openPasswordResetRequestDialog);
+
+    elements.passwordResetRequestForm
+      ?.addEventListener("submit", handlePasswordResetRequest);
+
+    elements.closePasswordResetRequestDialog
+      ?.addEventListener("click", closePasswordResetRequestDialog);
 
     elements.changePasswordButton
       ?.addEventListener("click", openChangePasswordDialog);
