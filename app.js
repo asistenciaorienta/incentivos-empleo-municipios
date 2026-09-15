@@ -85,6 +85,12 @@
     registrationsAttendedCount: document.querySelector("#registrationsAttendedCount"),
     registrationsReviewCount: document.querySelector("#registrationsReviewCount"),
     registrationSearch: document.querySelector("#registrationSearch"),
+    participantTrackingSection: document.querySelector("#participantTrackingSection"),
+    participantTrackingSearch: document.querySelector("#participantTrackingSearch"),
+    participantTrackingFilterResult: document.querySelector("#participantTrackingFilterResult"),
+    participantTrackingEmpty: document.querySelector("#participantTrackingEmpty"),
+    participantTrackingList: document.querySelector("#participantTrackingList"),
+    refreshParticipantTrackingButton: document.querySelector("#refreshParticipantTrackingButton"),
     registrationDateFilter: document.querySelector("#registrationDateFilter"),
     registrationPhaseFilter: document.querySelector("#registrationPhaseFilter"),
     registrationStatusFilter: document.querySelector("#registrationStatusFilter"),
@@ -1299,6 +1305,450 @@
     return String(session.end_time).slice(0, 8).padEnd(8, "0") <= currentTime;
   }
 
+  function participantTrackingRegistrationState(registration) {
+    const states = {
+      pending: {
+        label: "Pendiente",
+        className: "validation-pending",
+      },
+      confirmed: {
+        label: "Inscrita",
+        className: "validation-pending",
+      },
+      incident: {
+        label: "Incidencia",
+        className: "incident",
+      },
+      attended: {
+        label: "Asistió",
+        className: "synced",
+      },
+      absent: {
+        label: "No asistió",
+        className: "validation-pending",
+      },
+      cancelled: {
+        label: "Cancelada",
+        className: "incident",
+      },
+    };
+
+    return states[registration.status] || {
+      label: registration.status || "Sin estado",
+      className: "validation-pending",
+    };
+  }
+
+
+  function participantTrackingAnnexState(registration) {
+    const session = registration.session;
+
+    if (!session) {
+      return {
+        label: "Sin sesión",
+        detail: "No existe información de la sesión.",
+        className: "incident",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
+    if (registration.status === "cancelled") {
+      return {
+        label: "No aplicable",
+        detail: "La inscripción fue cancelada y no forma parte del Anexo I.",
+        className: "validation-pending",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
+    if (!sessionHasFinished(session)) {
+      return {
+        label: "Sesión pendiente",
+        detail: "El Anexo I se gestiona después de finalizar la sesión y cerrar la asistencia.",
+        className: "validation-pending",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
+    if (!["attended", "absent"].includes(registration.status)) {
+      return {
+        label: "Asistencia pendiente",
+        detail: "Todavía no consta cerrada la asistencia de esta persona.",
+        className: registration.status === "incident" ? "incident" : "validation-pending",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
+    const group = documentGroups()
+      .find((item) => item.session.id === session.id);
+
+    const document = latestDocumentForSession(session.id);
+    const generation = latestGenerationForSession(session.id);
+    const downloadedForSignatures = hasDownloadedGeneration(session.id);
+
+    if (document) {
+      if (
+        document.validation_status === "incident"
+        || document.sync_status === "error"
+      ) {
+        return {
+          label: "Anexo firmado con incidencia",
+          detail:
+            document.incident_message
+            || "La Dirección Provincial requiere una nueva versión o existe un error en el envío.",
+          className: "incident",
+          actionMode: "upload",
+          actionLabel: "Ir a subida",
+        };
+      }
+
+      if (document.validation_status === "pending_validation") {
+        return {
+          label: "Firmado y subido",
+          detail: "Pendiente de validación por la Dirección Provincial.",
+          className: "validation-pending",
+          actionMode: "",
+          actionLabel: "",
+        };
+      }
+
+      if (document.validation_status === "validated") {
+        const validatedDownload =
+          latestAnnexDocumentDownload(
+            document.id,
+            "provincial_validated",
+          );
+
+        if (
+          validatedDownload?.downloaded_at
+          || validatedDownload?.status === "downloaded"
+        ) {
+          return {
+            label: "Validado por DP · descargado",
+            detail: "La versión final validada por la Dirección Provincial ya fue descargada.",
+            className: "synced",
+            actionMode: "download",
+            actionLabel: "Ir a descargas",
+          };
+        }
+
+        if (
+          validatedDownload?.status === "error"
+          || validatedDownload?.incident_message
+        ) {
+          return {
+            label: "Validado por DP · incidencia de descarga",
+            detail:
+              validatedDownload.incident_message
+              || "No se pudo preparar la descarga del documento validado.",
+            className: "incident",
+            actionMode: "download",
+            actionLabel: "Revisar descarga",
+          };
+        }
+
+        if (
+          validatedDownload?.prepared_at
+          || validatedDownload?.status === "ready"
+        ) {
+          return {
+            label: "Validado por DP · pendiente de descargar",
+            detail: "La versión final está preparada y pendiente de descarga por el Ayuntamiento.",
+            className: "validation-pending",
+            actionMode: "download",
+            actionLabel: "Descargar validado",
+          };
+        }
+
+        return {
+          label: "Validado por DP · pendiente de descargar",
+          detail: "La Dirección Provincial ha validado el Anexo I. El Ayuntamiento puede preparar su descarga.",
+          className: "validation-pending",
+          actionMode: "download",
+          actionLabel: "Ir a descargas",
+        };
+      }
+
+      return {
+        label: "Anexo firmado subido",
+        detail: "El documento firmado consta remitido al SAE.",
+        className: "validation-pending",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
+    if (group?.pendingAttendance > 0) {
+      return {
+        label: "Pendiente de cierre de asistencia",
+        detail: `Quedan ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"} de la sesión con la asistencia pendiente.`,
+        className: "validation-pending",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
+    if (generation?.status === "error") {
+      return {
+        label: "Error al generar Anexo I",
+        detail:
+          generation.incident_message
+          || "La última generación del Anexo I terminó con una incidencia.",
+        className: "incident",
+        actionMode: "create",
+        actionLabel: "Revisar generación",
+      };
+    }
+
+    if (downloadedForSignatures) {
+      return {
+        label: "Descargado para firmas",
+        detail: "Pendiente de subir el Anexo I firmado por asistentes y responsable municipal.",
+        className: "validation-pending",
+        actionMode: "upload",
+        actionLabel: "Subir firmado",
+      };
+    }
+
+    if (generation?.status === "ready") {
+      return {
+        label: "Generado · pendiente de descargar",
+        detail: "El listado para firmas ya está generado y pendiente de descarga.",
+        className: "validation-pending",
+        actionMode: "create",
+        actionLabel: "Ir a generación",
+      };
+    }
+
+    if (
+      generation
+      && ["pending", "processing"].includes(generation.status)
+    ) {
+      return {
+        label: "Generación en curso",
+        detail: "El SAE está preparando el listado para firmas.",
+        className: "validation-pending",
+        actionMode: "create",
+        actionLabel: "Ver generación",
+      };
+    }
+
+    return {
+      label: "Pendiente de generar",
+      detail: "La asistencia está cerrada y todavía no se ha generado el Anexo I de esta sesión.",
+      className: "validation-pending",
+      actionMode: "create",
+      actionLabel: "Generar Anexo I",
+    };
+  }
+
+
+  function participantTrackingGroups() {
+    const groups = new Map();
+
+    for (const registration of registrations) {
+      const participant = registration.participant;
+
+      if (!participant?.id) continue;
+
+      if (!groups.has(participant.id)) {
+        groups.set(participant.id, {
+          participant,
+          registrations: [],
+        });
+      }
+
+      groups.get(participant.id).registrations.push(registration);
+    }
+
+    return [...groups.values()]
+      .map((group) => ({
+        ...group,
+        registrations: group.registrations
+          .slice()
+          .sort((a, b) => {
+            const dateA = a.session?.session_date || "";
+            const dateB = b.session?.session_date || "";
+
+            if (dateA !== dateB) {
+              return dateB.localeCompare(dateA);
+            }
+
+            return String(b.created_at || "")
+              .localeCompare(String(a.created_at || ""));
+          }),
+      }))
+      .sort((a, b) =>
+        String(a.participant.display_name || "")
+          .localeCompare(
+            String(b.participant.display_name || ""),
+            "es",
+            { sensitivity: "base" },
+          )
+      );
+  }
+
+
+  function participantTrackingSessionItem(registration) {
+    const session = registration.session;
+    const registrationState =
+      participantTrackingRegistrationState(registration);
+    const annexState =
+      participantTrackingAnnexState(registration);
+
+    const phase =
+      registration.phase === "initial"
+        ? "Inicial"
+        : "Final";
+
+    const program =
+      registration.program_name_snapshot
+      || "Programa no indicado";
+
+    const actionHtml =
+      annexState.actionMode && session?.id
+        ? `
+          <button
+            class="button secondary small js-tracking-annex-action"
+            type="button"
+            data-mode="${escapeHtml(annexState.actionMode)}"
+            data-session-id="${escapeHtml(session.id)}"
+          >
+            ${escapeHtml(annexState.actionLabel)}
+          </button>
+        `
+        : "";
+
+    return `
+      <article class="participant-tracking-session">
+        <div class="participant-tracking-session-main">
+          <div class="participant-tracking-session-heading">
+            <div>
+              <strong>${escapeHtml(session?.title || "Sesión")}</strong>
+              <small>
+                ${escapeHtml(formatDate(session?.session_date))}
+                · ${escapeHtml(phase)}
+                ${session?.start_time ? ` · ${escapeHtml(formatTime(session.start_time))}` : ""}
+              </small>
+            </div>
+
+            <span class="badge ${escapeHtml(registrationState.className)}">
+              ${escapeHtml(registrationState.label)}
+            </span>
+          </div>
+
+          <div class="participant-tracking-program">
+            <span>Programa</span>
+            <strong>${escapeHtml(program)}</strong>
+          </div>
+        </div>
+
+        <div class="participant-tracking-annex">
+          <div>
+            <small>Anexo I de la sesión</small>
+            <div class="status-row">
+              <span class="badge ${escapeHtml(annexState.className)}">
+                ${escapeHtml(annexState.label)}
+              </span>
+            </div>
+            <p>${escapeHtml(annexState.detail)}</p>
+          </div>
+
+          ${actionHtml}
+        </div>
+      </article>
+    `;
+  }
+
+
+  function renderParticipantTracking() {
+    if (
+      !elements.participantTrackingSearch
+      || !elements.participantTrackingList
+      || !elements.participantTrackingEmpty
+    ) return;
+
+    const query =
+      normalizeSearchText(
+        elements.participantTrackingSearch.value,
+      );
+
+    elements.participantTrackingList.hidden = true;
+
+    if (query.length < 2) {
+      elements.participantTrackingFilterResult.textContent = "";
+      elements.participantTrackingList.innerHTML = "";
+      elements.participantTrackingEmpty.hidden = false;
+      elements.participantTrackingEmpty.textContent =
+        "Escribe al menos 2 caracteres para buscar una persona de este Ayuntamiento.";
+      return;
+    }
+
+    const groups =
+      participantTrackingGroups()
+        .filter((group) => {
+          const participant = group.participant;
+
+          const haystack = normalizeSearchText([
+            participant.display_name || "",
+            participant.masked_document || "",
+            ...group.registrations.map(
+              (item) => item.program_name_snapshot || "",
+            ),
+          ].join(" "));
+
+          return haystack.includes(query);
+        });
+
+    elements.participantTrackingFilterResult.textContent =
+      `${groups.length} persona${groups.length === 1 ? "" : "s"} encontrada${groups.length === 1 ? "" : "s"}.`;
+
+    if (groups.length === 0) {
+      elements.participantTrackingList.innerHTML = "";
+      elements.participantTrackingEmpty.hidden = false;
+      elements.participantTrackingEmpty.textContent =
+        "No se ha encontrado ninguna persona de este Ayuntamiento con ese criterio.";
+      return;
+    }
+
+    elements.participantTrackingEmpty.hidden = true;
+
+    elements.participantTrackingList.innerHTML =
+      groups.map((group) => {
+        const participant = group.participant;
+
+        return `
+          <article class="participant-tracking-person">
+            <header class="participant-tracking-person-header">
+              <div>
+                <p class="section-kicker">Participante</p>
+                <h3>${escapeHtml(participant.display_name || "Persona participante")}</h3>
+                <span>${escapeHtml(participant.masked_document || "Documento protegido")}</span>
+              </div>
+
+              <strong class="participant-tracking-session-count">
+                ${group.registrations.length}
+                ${group.registrations.length === 1 ? "sesión" : "sesiones"}
+              </strong>
+            </header>
+
+            <div class="participant-tracking-history">
+              ${group.registrations
+                .map(participantTrackingSessionItem)
+                .join("")}
+            </div>
+          </article>
+        `;
+      }).join("");
+
+    elements.participantTrackingList.hidden = false;
+  }
+
+
   function documentGroups() {
     const grouped = new Map();
     for (const registration of registrations) {
@@ -1958,6 +2408,7 @@
         municipalDocuments.filter((item) => item.validation_status !== "superseded").length,
       );
       renderDocuments();
+      renderParticipantTracking();
       updatePendingManagementSummary();
 
       if (elements.documentsAutoRefreshStatus && documentViewMode === "create") {
@@ -2697,6 +3148,7 @@
       if (elements.registrationTabCount) elements.registrationTabCount.textContent = String(registrations.length);
       renderIncidents();
       renderRegistrations();
+      renderParticipantTracking();
     } finally {
       if (!silent) {
         elements.registrationsLoading.hidden = true;
@@ -4076,6 +4528,62 @@
         renderRegistrations();
       });
     });
+    elements.participantTrackingSearch?.addEventListener(
+      "input",
+      renderParticipantTracking,
+    );
+
+    elements.refreshParticipantTrackingButton?.addEventListener(
+      "click",
+      async () => {
+        clearNotice();
+        elements.refreshParticipantTrackingButton.disabled = true;
+
+        try {
+          await reloadPortalData();
+          renderParticipantTracking();
+          showNotice(
+            "success",
+            "El seguimiento de participantes se ha actualizado.",
+          );
+        } catch (error) {
+          showNotice(
+            "error",
+            `No se pudo actualizar el seguimiento: ${error.message}`,
+          );
+        } finally {
+          elements.refreshParticipantTrackingButton.disabled = false;
+        }
+      },
+    );
+
+    elements.participantTrackingList?.addEventListener(
+      "click",
+      (event) => {
+        const button =
+          event.target.closest(".js-tracking-annex-action");
+
+        if (!button) return;
+
+        const mode = button.dataset.mode;
+        const sessionId = button.dataset.sessionId;
+
+        if (
+          !["create", "upload", "download"].includes(mode)
+        ) return;
+
+        openDocumentSection(mode);
+
+        if (sessionId) {
+          window.setTimeout(() => {
+            highlightPortalItem(
+              `.document-item[data-session-id="${CSS.escape(sessionId)}"]`,
+            );
+          }, 0);
+        }
+      },
+    );
+
     elements.registrationSearch.addEventListener("input", renderRegistrations);
     elements.registrationDateFilter.addEventListener("change", renderRegistrations);
     elements.registrationPhaseFilter.addEventListener("change", renderRegistrations);
@@ -4113,6 +4621,11 @@
     document.querySelectorAll(".js-dashboard-action").forEach((button) => button.addEventListener("click", () => {
       const action = button.dataset.action;
       if (action === "sessions-hub") { resetSessionTypeSelection(); setActiveSection("sessionsSection"); }
+      else if (action === "participant-tracking") {
+        renderParticipantTracking();
+        setActiveSection("participantTrackingSection");
+        window.setTimeout(() => elements.participantTrackingSearch?.focus(), 0);
+      }
       else if (action === "participants") { setSessionType("initial"); setActiveSection("sessionsSection"); }
       else if (action === "changes") setActiveSection("registrationsSection");
       else if (action === "incidents") { renderIncidents(); setActiveSection("incidentsSection"); }

@@ -344,6 +344,12 @@
                 <span><strong>Inscripción en sesiones / Enlaces</strong><small>Consultar sesiones iniciales o finales, inscribir personas, acceder al enlace y revisar participantes inscritos.</small></span>
                 <span class="management-action-arrow" aria-hidden="true">›</span>
               </button>
+
+              <button class="management-action js-dashboard-action" type="button" data-action="participant-tracking">
+                <span class="management-action-number" aria-hidden="true">2</span>
+                <span><strong>Seguimiento de participantes</strong><small>Localizar cualquier persona del Ayuntamiento y consultar su historial de sesiones, asistencia y estado de los Anexos I.</small></span>
+                <span class="management-action-arrow" aria-hidden="true">›</span>
+              </button>
             </div>
           </article>
 
@@ -468,6 +474,49 @@
           <div id="registrationsLoading" class="empty-state">Cargando inscripciones…</div>
           <div id="registrationsEmpty" class="empty-state" hidden>No hay inscripciones realizadas por este ayuntamiento.</div>
           <div id="registrationsList" class="registration-list" hidden></div>
+        </section>
+      </section>
+
+      <section id="participantTrackingSection" class="portal-section" hidden>
+        <div class="section-navigation">
+          <div>
+            <p class="section-kicker">Seguimiento municipal</p>
+            <h2>Seguimiento de participantes</h2>
+          </div>
+        </div>
+
+        <section class="card sessions-card participant-tracking-card" aria-labelledby="participantTrackingTitle">
+          <div class="card-heading sessions-heading">
+            <div>
+              <p class="section-kicker">Historial individual</p>
+              <h2 id="participantTrackingTitle">Buscar participante</h2>
+              <p>Consulta todas las sesiones de una persona y la situación del Anexo I correspondiente a cada sesión.</p>
+            </div>
+
+            <button id="refreshParticipantTrackingButton" class="button secondary small" type="button">
+              Actualizar
+            </button>
+          </div>
+
+          <div class="participant-tracking-search-panel">
+            <label class="filter-field filter-field-grow">
+              <span>Persona</span>
+              <input
+                id="participantTrackingSearch"
+                type="search"
+                placeholder="Buscar por nombre o últimos dígitos del documento…"
+                autocomplete="off"
+              >
+            </label>
+          </div>
+
+          <div id="participantTrackingFilterResult" class="filter-result" aria-live="polite"></div>
+
+          <div id="participantTrackingEmpty" class="empty-state">
+            Escribe al menos 2 caracteres para buscar una persona de este Ayuntamiento.
+          </div>
+
+          <div id="participantTrackingList" class="participant-tracking-list" hidden></div>
         </section>
       </section>
 
