@@ -1747,6 +1747,29 @@
     for (const generation of annexGenerationRequests) {
       if (generation.status !== "error" && !generation.incident_message) continue;
 
+      // Una incidencia de generación deja de estar pendiente si,
+      // para la misma sesión, existe una generación posterior que
+      // llegó correctamente a ready o downloaded.
+      //
+      // Conservamos la solicitud fallida en Supabase como histórico;
+      // simplemente deja de mostrarse como incidencia pendiente.
+      const generationCreatedAt =
+        new Date(generation.created_at || 0).getTime();
+
+      const hasLaterSuccessfulGeneration =
+        annexGenerationRequests.some((candidate) => {
+          if (candidate.id === generation.id) return false;
+          if (candidate.session_id !== generation.session_id) return false;
+          if (!["ready", "downloaded"].includes(candidate.status)) return false;
+
+          const candidateCreatedAt =
+            new Date(candidate.created_at || 0).getTime();
+
+          return candidateCreatedAt > generationCreatedAt;
+        });
+
+      if (hasLaterSuccessfulGeneration) continue;
+
       const session = findRegistrationSession(generation.session_id);
       items.push({
         group: "annex",
