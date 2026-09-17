@@ -952,6 +952,56 @@
   </dialog>
 
 
+  <dialog id="registrationSuccessDialog" class="modal-dialog compact-dialog" aria-labelledby="registrationSuccessTitle">
+    <div class="modal-card">
+      <div class="modal-heading">
+        <div>
+          <p class="section-kicker">Inscripción completada</p>
+          <h2 id="registrationSuccessTitle">Inscripción realizada correctamente</h2>
+          <p id="registrationSuccessSessionSummary">—</p>
+        </div>
+
+        <button
+          id="closeRegistrationSuccessDialog"
+          class="icon-button"
+          type="button"
+          aria-label="Cerrar"
+        >×</button>
+      </div>
+
+      <div id="registrationSuccessLinkBox" class="privacy-box">
+        <p><strong>Enlace de la sesión</strong></p>
+
+        <div class="session-link-value">
+          <a
+            id="registrationSuccessLink"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+          >—</a>
+
+          <button
+            id="copyRegistrationSuccessLink"
+            class="button primary"
+            type="button"
+          >Copiar enlace</button>
+        </div>
+      </div>
+
+      <p id="registrationSuccessNoLink" class="muted" hidden>
+        Esta sesión no tiene enlace disponible.
+      </p>
+
+      <div class="modal-actions">
+        <button
+          id="closeRegistrationSuccessButton"
+          class="button secondary"
+          type="button"
+        >Cerrar</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="changeSessionDialog" class="modal-dialog compact-dialog" aria-labelledby="changeSessionDialogTitle">
     <form id="changeSessionForm" class="modal-card" method="dialog" novalidate>
       <div id="changeSessionNotice" class="notice" role="status" aria-live="polite" hidden></div>

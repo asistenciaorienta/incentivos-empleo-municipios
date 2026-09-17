@@ -161,6 +161,15 @@
     closeFinalDialog: document.querySelector("#closeFinalDialog"),
     cancelFinalRegistration: document.querySelector("#cancelFinalRegistration"),
     submitFinalRegistration: document.querySelector("#submitFinalRegistration"),
+    registrationSuccessDialog: document.querySelector("#registrationSuccessDialog"),
+    registrationSuccessTitle: document.querySelector("#registrationSuccessTitle"),
+    registrationSuccessSessionSummary: document.querySelector("#registrationSuccessSessionSummary"),
+    registrationSuccessLinkBox: document.querySelector("#registrationSuccessLinkBox"),
+    registrationSuccessLink: document.querySelector("#registrationSuccessLink"),
+    registrationSuccessNoLink: document.querySelector("#registrationSuccessNoLink"),
+    copyRegistrationSuccessLink: document.querySelector("#copyRegistrationSuccessLink"),
+    closeRegistrationSuccessDialog: document.querySelector("#closeRegistrationSuccessDialog"),
+    closeRegistrationSuccessButton: document.querySelector("#closeRegistrationSuccessButton"),
     changeSessionDialog: document.querySelector("#changeSessionDialog"),
     changeSessionForm: document.querySelector("#changeSessionForm"),
     changeSessionNotice: document.querySelector("#changeSessionNotice"),
@@ -3363,6 +3372,78 @@
     elements.finalDialog.close();
   }
 
+  function closeRegistrationSuccessDialog() {
+    if (elements.registrationSuccessDialog?.open) {
+      elements.registrationSuccessDialog.close();
+    }
+  }
+
+  function openRegistrationSuccessDialog(sessionId, phase) {
+    const session = findSession(sessionId);
+    if (!session) return;
+
+    const meetingUrl = String(session.meeting_url || "").trim();
+
+    elements.registrationSuccessTitle.textContent =
+      phase === "Final"
+        ? "Inscripción en sesión final realizada"
+        : "Inscripción realizada correctamente";
+
+    elements.registrationSuccessSessionSummary.textContent =
+      `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
+
+    if (meetingUrl) {
+      elements.registrationSuccessLink.href = meetingUrl;
+      elements.registrationSuccessLink.textContent = meetingUrl;
+
+      elements.copyRegistrationSuccessLink.dataset.link = meetingUrl;
+      elements.copyRegistrationSuccessLink.textContent = "Copiar enlace";
+
+      elements.registrationSuccessLinkBox.hidden = false;
+      elements.registrationSuccessNoLink.hidden = true;
+    } else {
+      elements.registrationSuccessLink.removeAttribute("href");
+      elements.registrationSuccessLink.textContent = "—";
+
+      delete elements.copyRegistrationSuccessLink.dataset.link;
+
+      elements.registrationSuccessLinkBox.hidden = true;
+      elements.registrationSuccessNoLink.hidden = false;
+    }
+
+    elements.registrationSuccessDialog.showModal();
+  }
+
+  async function copyRegistrationSuccessLinkToClipboard() {
+    const button = elements.copyRegistrationSuccessLink;
+    const text = String(button.dataset.link || "").trim();
+
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+
+    button.textContent = "Copiado ✓";
+    showPortalToast("✓ Enlace copiado al portapapeles.");
+
+    window.setTimeout(() => {
+      button.textContent = "Copiar enlace";
+    }, 1400);
+  }
+
   async function handleInitialRegistration(event) {
     event.preventDefault();
     clearNotice(elements.registrationNotice);
@@ -3443,6 +3524,8 @@
           : "La persona ha quedado inscrita correctamente.",
       );
 
+      openRegistrationSuccessDialog(sessionId, "Inicial");
+
       if (linkShown) {
         window.setTimeout(
           () => revealSessionLinkAfterRegistration(sessionId),
@@ -3493,6 +3576,8 @@
           ? "La persona ha quedado inscrita en la sesión final. El enlace de la sesión se muestra debajo y está listo para copiar."
           : "La persona ha quedado inscrita en la sesión final.",
       );
+
+      openRegistrationSuccessDialog(sessionId, "Final");
 
       if (linkShown) {
         window.setTimeout(
@@ -4899,6 +4984,22 @@
     });
     elements.closeFinalDialog.addEventListener("click", closeFinalDialog);
     elements.cancelFinalRegistration.addEventListener("click", closeFinalDialog);
+
+    elements.closeRegistrationSuccessDialog.addEventListener(
+      "click",
+      closeRegistrationSuccessDialog,
+    );
+
+    elements.closeRegistrationSuccessButton.addEventListener(
+      "click",
+      closeRegistrationSuccessDialog,
+    );
+
+    elements.copyRegistrationSuccessLink.addEventListener(
+      "click",
+      copyRegistrationSuccessLinkToClipboard,
+    );
+
     elements.changeSessionForm.addEventListener("submit", handleChangeSession);
     elements.closeChangeSessionDialog.addEventListener("click", closeChangeSessionDialog);
     elements.cancelChangeSession.addEventListener("click", closeChangeSessionDialog);
