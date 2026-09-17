@@ -3512,7 +3512,8 @@
       });
       if (error) throw new Error(error.message);
       closeInitialDialog();
-      await Promise.all([loadRegistrations(), loadSessions()]);
+      await loadRegistrations();
+      await loadSessions();
       setActiveSection("sessionsSection");
 
       const linkShown = revealSessionLinkAfterRegistration(sessionId);
@@ -3565,7 +3566,8 @@
       const { error } = await municipalRpc("register_final", { p_participant_id: participantId, p_session_id: sessionId, p_program_id: programId });
       if (error) throw new Error(error.message);
       closeFinalDialog();
-      await Promise.all([loadRegistrations(), loadSessions()]);
+      await loadRegistrations();
+      await loadSessions();
       setActiveSection("sessionsSection");
 
       const linkShown = revealSessionLinkAfterRegistration(sessionId);
@@ -3704,7 +3706,8 @@
       if (!data) throw new Error("No se pudo crear la nueva inscripción.");
 
       closeChangeSessionDialog();
-      await Promise.all([loadRegistrations(), loadSessions()]);
+      await loadRegistrations();
+      await loadSessions();
       setActiveSection("registrationsSection");
       showNotice(
         "success",
@@ -3744,7 +3747,8 @@
       if (error) throw new Error(error.message);
       if (!data) throw new Error("La inscripción ya no estaba disponible para cancelar.");
       closeCancelDialog();
-      await Promise.all([loadRegistrations(), loadSessions()]);
+      await loadRegistrations();
+      await loadSessions();
       showNotice("success", "La inscripción se ha cancelado y la plaza ha quedado libre.");
     } catch (error) {
       closeCancelDialog();
