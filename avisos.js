@@ -22,7 +22,7 @@ window.SAE_MUNICIPAL_NOTICES = [
     level: "info",
     startDate: "2026-08-13",
     endDate: "2026-09-30",
-    title: "Nuevo acceso a sesiones, incidencias y Anexos I",
+    title: "",
     message: "Acceso a sesiones, inscripciones, Anexos I e incidencias. Gestiona cada trámite desde su apartado."
   }
 ];

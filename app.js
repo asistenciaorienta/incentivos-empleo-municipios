@@ -291,7 +291,7 @@
     return notices
       .filter((notice) => {
         if (!notice || notice.active === false) return false;
-        if (!notice.id || !notice.title || !notice.message) return false;
+        if (!notice.id || !notice.message) return false;
         if (notice.startDate && String(notice.startDate) > today) return false;
         if (notice.endDate && String(notice.endDate) < today) return false;
 
@@ -337,7 +337,7 @@
           <span class="municipal-notice-level">${escapeHtml(noticeLevelLabel(notice.level))}</span>
           ${notice.startDate ? `<time datetime="${escapeHtml(notice.startDate)}">${escapeHtml(formatDate(notice.startDate))}</time>` : ""}
         </div>
-        <h3>${escapeHtml(notice.title)}</h3>
+        ${notice.title ? `<h3>${escapeHtml(notice.title)}</h3>` : ""}
         <p>${escapeHtml(notice.message)}</p>
       </article>
     `).join("");
@@ -798,21 +798,21 @@
         heading: "Generación de Anexos I",
         kicker: "Preparación para firmas",
         title: "Generar Anexo I",
-        description: "Se muestran únicamente sesiones celebradas o del día de hoy. Cuando la Dirección Provincial haya cerrado la asistencia, podrás generar el Anexo I con todas las personas inscritas y completar el motivo de quienes no asistieron.",
+        description: "Solo se muestran sesiones celebradas. Con la asistencia validada, genera el Anexo I y completa las ausencias.",
         empty: "No hay sesiones con inscripciones disponibles para generar el Anexo I."
       },
       upload: {
         heading: "Subida de Anexos I",
         kicker: "Entrega segura",
         title: "Subir Anexo I firmado",
-        description: "Se muestran únicamente sesiones finalizadas. Incorpora el PDF con las firmas manuscritas de las personas asistentes y la firma digital de la persona responsable del ayuntamiento.",
+        description: "Solo se muestran sesiones finalizadas. Sube el PDF con firma manuscrita de asistentes y firma digital municipal.",
         empty: "No hay sesiones finalizadas disponibles para incorporar documentación firmada."
       },
       download: {
         heading: "Descarga de Anexos I",
         kicker: "Documentos generados",
         title: "Descargar Anexo I",
-        description: "Se muestran únicamente sesiones finalizadas. Tras la validación provincial, descarga el PDF firmado por el ayuntamiento y el PDF final validado por la Dirección Provincial. No se ofrece opción de impresión desde el portal.",
+        description: "Solo se muestran sesiones finalizadas. Descarga el PDF validado.",
         empty: "No hay sesiones finalizadas con Anexos I disponibles para descargar."
       }
     }[documentViewMode];
