@@ -3042,9 +3042,7 @@
     elements.municipalityName.textContent =
       selectedMunicipality.name;
 
-    elements.userSummary.textContent =
-      `${data.full_name || data.email || "Usuario municipal"} · ${data.role}`;
-
+    elements.userSummary.textContent = "Acceso municipal";
     sessionStorage.setItem(
       municipalitySelectionKey(),
       selectedMunicipality.id

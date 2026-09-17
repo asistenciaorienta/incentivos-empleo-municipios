@@ -1648,7 +1648,22 @@ select:focus {
 }
 
 .document-filter-panel {
-  margin-bottom: 0.85rem;
+  margin: 1.35rem 0 0.85rem;
+}
+
+/* Cabecera de las pantallas de Anexos I:
+   texto a todo el ancho y controles de actualización debajo */
+#documentsSection .sessions-heading {
+  flex-wrap: wrap;
+}
+
+#documentsSection .sessions-heading > div:first-child {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+#documentsSection .documents-refresh-tools {
+  width: 100%;
 }
 
 .quick-filter-row {
