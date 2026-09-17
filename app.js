@@ -2151,7 +2151,9 @@
     elements.pendingManagementMessage.textContent =
       summary.total === 0
         ? "No hay actuaciones municipales pendientes en este momento."
-        : `${summary.total} actuación${summary.total === 1 ? "" : "es"} requiere${summary.total === 1 ? "" : "n"} atención.`;
+        : summary.total === 1
+          ? "1 actuación requiere atención."
+          : `${summary.total} actuaciones requieren atención.`;
   }
 
 
@@ -3267,6 +3269,51 @@
     return sessions.find((item) => item.id === sessionId);
   }
 
+  function revealSessionLinkAfterRegistration(sessionId) {
+    const escapedSessionId = CSS.escape(String(sessionId));
+
+    const panel = elements.sessionsGrid.querySelector(
+      `[data-session-link-panel="${escapedSessionId}"]`,
+    );
+
+    if (!panel) return false;
+
+    const copyButton = panel.querySelector(".js-copy-link");
+    const meetingUrl = String(copyButton?.dataset.link || "").trim();
+
+    if (!meetingUrl) return false;
+
+    panel.hidden = false;
+
+    const toggleButton = elements.sessionsGrid.querySelector(
+      `.js-toggle-link[data-session-id="${escapedSessionId}"]`,
+    );
+
+    if (toggleButton) {
+      toggleButton.textContent = "Ocultar enlace";
+    }
+
+    const row = elements.sessionsGrid.querySelector(
+      `.session-browser-row[data-session-id="${escapedSessionId}"]`,
+    );
+
+    if (row) {
+      row.classList.add("attention-highlight");
+
+      row.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      window.setTimeout(
+        () => row.classList.remove("attention-highlight"),
+        2600,
+      );
+    }
+
+    return true;
+  }
+
   function openInitialDialog(sessionId) {
     const session = findSession(sessionId);
     if (!session) return;
@@ -3385,8 +3432,23 @@
       if (error) throw new Error(error.message);
       closeInitialDialog();
       await reloadPortalData();
-      showNotice("success", "La persona ha quedado inscrita correctamente.");
       setActiveSection("sessionsSection");
+
+      const linkShown = revealSessionLinkAfterRegistration(sessionId);
+
+      showNotice(
+        "success",
+        linkShown
+          ? "La persona ha quedado inscrita correctamente. El enlace de la sesión se muestra debajo y está listo para copiar."
+          : "La persona ha quedado inscrita correctamente.",
+      );
+
+      if (linkShown) {
+        window.setTimeout(
+          () => revealSessionLinkAfterRegistration(sessionId),
+          80,
+        );
+      }
     } catch (error) {
       const message = String(error?.message ?? "No se pudo completar la inscripción.");
       const friendly = message.includes("capacidad ordinaria") ? "La sesión está completa. No se pueden realizar nuevas inscripciones." : message.includes("duplicate key") ? "Esta persona ya tiene una inscripción activa en esa fase." : message;
@@ -3421,7 +3483,23 @@
       if (error) throw new Error(error.message);
       closeFinalDialog();
       await reloadPortalData();
-      showNotice("success", "La persona ha quedado inscrita en la sesión final.");
+      setActiveSection("sessionsSection");
+
+      const linkShown = revealSessionLinkAfterRegistration(sessionId);
+
+      showNotice(
+        "success",
+        linkShown
+          ? "La persona ha quedado inscrita en la sesión final. El enlace de la sesión se muestra debajo y está listo para copiar."
+          : "La persona ha quedado inscrita en la sesión final.",
+      );
+
+      if (linkShown) {
+        window.setTimeout(
+          () => revealSessionLinkAfterRegistration(sessionId),
+          80,
+        );
+      }
       setActiveSection("sessionsSection");
     } catch (error) {
       const message = String(error?.message || "No se pudo completar la inscripción final.");
