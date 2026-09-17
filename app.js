@@ -2927,7 +2927,7 @@
       if (!completeData) throw new Error("El envío no pudo confirmarse.");
 
       closeDocumentUploadDialog();
-      await reloadPortalData();
+      await loadDocuments();
       showNotice("success", "El Anexo I firmado se ha enviado al SAE.");
       openDocumentSection("upload");
     } catch (error) {
@@ -3500,7 +3500,6 @@
           80,
         );
       }
-      setActiveSection("sessionsSection");
     } catch (error) {
       const message = String(error?.message || "No se pudo completar la inscripción final.");
       const friendly = message.includes("capacidad ordinaria")
