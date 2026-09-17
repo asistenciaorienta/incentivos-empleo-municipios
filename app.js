@@ -4576,12 +4576,12 @@
     elements.acceptMunicipalNotices?.addEventListener("click", acceptMunicipalNotices);
     elements.refreshButton.addEventListener("click", async () => {
       clearNotice();
-      try { await reloadPortalData(); showNotice("success", "La información se ha actualizado."); }
+      try { await loadSessions(); showNotice("success", "La información se ha actualizado."); }
       catch (error) { showNotice("error", `No se pudo actualizar: ${error.message}`); }
     });
     elements.refreshRegistrationsButton.addEventListener("click", async () => {
       clearNotice();
-      try { await reloadPortalData(); showNotice("success", "Las inscripciones se han actualizado."); }
+      try { await loadRegistrations(); showNotice("success", "Las inscripciones se han actualizado."); }
       catch (error) { showNotice("error", `No se pudieron actualizar las inscripciones: ${error.message}`); }
     });
     document.querySelectorAll("[data-session-type]").forEach((button) => {
@@ -4615,8 +4615,7 @@
         elements.refreshParticipantTrackingButton.disabled = true;
 
         try {
-          await reloadPortalData();
-          renderParticipantTracking();
+          await loadRegistrations({ silent: true });
           showNotice(
             "success",
             "El seguimiento de participantes se ha actualizado.",
@@ -4723,7 +4722,7 @@
       clearNotice();
       elements.refreshIncidentsButton.disabled = true;
       elements.incidentsLoading.hidden = false;
-      try { await reloadPortalData(); renderIncidents(); showNotice("success", "Las incidencias se han actualizado."); }
+      try { await loadRegistrations({ silent: true }); showNotice("success", "Las incidencias se han actualizado."); }
       catch (error) { showNotice("error", `No se pudieron actualizar las incidencias: ${error.message}`); }
       finally { elements.refreshIncidentsButton.disabled = false; elements.incidentsLoading.hidden = true; }
     });
