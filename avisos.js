@@ -23,6 +23,6 @@ window.SAE_MUNICIPAL_NOTICES = [
     startDate: "2026-08-13",
     endDate: "2026-09-30",
     title: "Nuevo acceso a sesiones, incidencias y Anexos I",
-    message: "La gestión municipal se organiza en Sesiones grupales, Incidencias y Anexos I. En «Inscripción / Enlaces» puedes consultar las sesiones iniciales y finales, inscribir participantes, copiar el enlace de conexión y revisar las personas inscritas. Si aparece algún elemento pendiente, consulta el apartado «Incidencias»."
+    message: "Acceso a sesiones, inscripciones, Anexos I e incidencias. Gestiona cada trámite desde su apartado."
   }
 ];
