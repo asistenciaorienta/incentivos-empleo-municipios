@@ -2439,7 +2439,7 @@
 
       if (elements.documentsAutoRefreshStatus && documentViewMode === "create") {
         const time = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
-        elements.documentsAutoRefreshStatus.textContent = `Actualización automática cada 20 s · Última: ${time}`;
+        elements.documentsAutoRefreshStatus.textContent = `Actualización automática cada 60 s · Última: ${time}`;
       }
     } finally {
       if (!silent) {
@@ -2455,7 +2455,7 @@
   }
 
   async function refreshAnnexGenerationData() {
-    if (documentAutoRefreshBusy || documentViewMode !== "create" || elements.documentsSection?.hidden) return;
+    if (documentAutoRefreshBusy || documentViewMode !== "create" || elements.documentsSection?.hidden || document.visibilityState !== "visible") return;
     documentAutoRefreshBusy = true;
     try {
       await loadRegistrations({ silent: true });
@@ -2471,9 +2471,9 @@
     stopDocumentAutoRefresh();
     if (documentViewMode !== "create") return;
     if (elements.documentsAutoRefreshStatus) {
-      elements.documentsAutoRefreshStatus.textContent = "Actualización automática cada 20 s";
+      elements.documentsAutoRefreshStatus.textContent = "Actualización automática cada 60 s";
     }
-    documentAutoRefreshTimer = window.setInterval(() => { void refreshAnnexGenerationData(); }, 20_000);
+    documentAutoRefreshTimer = window.setInterval(() => { void refreshAnnexGenerationData(); }, 60_000);
   }
 
   function findRegistrationSession(sessionId) {
@@ -2660,7 +2660,7 @@
       if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
       closeAnnexGenerationDialog();
       await loadDocuments();
-      showNotice("success", "El SAE está generando el Anexo I. Esta pantalla se actualiza automáticamente cada 20 segundos y mostrará la descarga en cuanto esté disponible.");
+      showNotice("success", "El SAE está generando el Anexo I. Esta pantalla se actualiza automáticamente cada 60 segundos y mostrará la descarga en cuanto esté disponible.");
     } catch (error) {
       if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
       showNotice("error", error.message || "No se pudo solicitar el Anexo I.", elements.annexGenerationNotice);
