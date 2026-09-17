@@ -1652,18 +1652,60 @@ select:focus {
 }
 
 /* Cabecera de las pantallas de Anexos I:
-   texto a todo el ancho y controles de actualización debajo */
+   actualización alineada con el título y descripción a todo el ancho */
 #documentsSection .sessions-heading {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 1.5rem;
+  row-gap: 0;
+  align-items: center;
 }
 
 #documentsSection .sessions-heading > div:first-child {
-  flex: 1 1 100%;
-  min-width: 0;
+  display: contents;
+}
+
+#documentsSection #documentsKicker {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+#documentsSection #documentsTitle {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 #documentsSection .documents-refresh-tools {
-  width: 100%;
+  grid-column: 2;
+  grid-row: 2;
+  width: auto;
+  align-self: center;
+}
+
+#documentsSection #documentsDescription {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  #documentsSection .sessions-heading {
+    grid-template-columns: 1fr;
+    row-gap: 0.65rem;
+  }
+
+  #documentsSection #documentsKicker,
+  #documentsSection #documentsTitle,
+  #documentsSection .documents-refresh-tools,
+  #documentsSection #documentsDescription {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  #documentsSection .documents-refresh-tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .quick-filter-row {
