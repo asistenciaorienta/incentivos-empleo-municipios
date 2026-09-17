@@ -6,6 +6,15 @@
   const publishableKey = String(config.SUPABASE_PUBLISHABLE_KEY ?? "").trim();
   const PAYLOAD_SCHEMA = "incentivos-empleo.participant.v1";
   const AES_ADDITIONAL_DATA = new TextEncoder().encode(PAYLOAD_SCHEMA);
+  const ANNEX_APP_START_DATE = "2026-10-01";
+
+  function annexIsManagedInApp(session) {
+    return Boolean(
+      session?.session_date
+      && String(session.session_date) >= ANNEX_APP_START_DATE
+    );
+  }
+
   const DOCUMENT_SCHEMA = "incentivos-empleo.signed-annex.v1";
   const MAX_SIGNED_ANNEX_BYTES = 12 * 1024 * 1024;
   const GENERATED_ANNEX_SCHEMA = "incentivos-empleo.generated-annex.v1";
@@ -1363,6 +1372,17 @@
       };
     }
 
+    if (!annexIsManagedInApp(session)) {
+      return {
+        label: "Gestionado fuera de la aplicación",
+        detail:
+          "Sesión anterior al 01/10/2026. El Anexo I se gestionó por el procedimiento anterior y no requiere actuación en este aplicativo.",
+        className: "synced",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
     if (!sessionHasFinished(session)) {
       return {
         label: "Sesión pendiente",
@@ -1749,7 +1769,7 @@
   }
 
 
-  function documentGroups() {
+  function allDocumentGroups() {
     const grouped = new Map();
     for (const registration of registrations) {
       if (!registration.session || registration.status === "cancelled") continue;
@@ -2003,6 +2023,12 @@
       ${contentHtml}
       <div class="document-actions-stack">${actionHtml}</div>
     </article>`;
+  }
+
+  function documentGroups() {
+    return allDocumentGroups().filter(
+      (group) => annexIsManagedInApp(group.session)
+    );
   }
 
   function renderDocuments() {
@@ -2467,6 +2493,14 @@
   function openAnnexGenerationDialog(sessionId) {
     const session = findRegistrationSession(sessionId);
     if (!session) return;
+
+    if (!annexIsManagedInApp(session)) {
+      showNotice(
+        "warning",
+        "El Anexo I de las sesiones anteriores al 01/10/2026 se gestionó fuera de esta aplicación.",
+      );
+      return;
+    }
     const group = documentGroups().find((item) => item.session.id === sessionId);
     if (!group || !sessionHasFinished(session)) {
       showNotice("warning", `El Anexo I estará disponible después de la hora de finalización de la sesión (${formatTime(session.end_time)}).`);
@@ -2531,6 +2565,17 @@
     event.preventDefault();
     clearNotice(elements.annexGenerationNotice);
     const sessionId = elements.annexGenerationSessionId.value;
+    const cutoffSession = findRegistrationSession(sessionId);
+
+    if (!annexIsManagedInApp(cutoffSession)) {
+      showNotice(
+        "warning",
+        "El Anexo I de las sesiones anteriores al 01/10/2026 se gestionó fuera de esta aplicación.",
+        elements.annexGenerationNotice,
+      );
+      return;
+    }
+
     const registrationIds = registrationsForAnnex(sessionId).map((item) => item.id);
     const representativeName = normalizePersonText(elements.annexRepresentativeName.value);
     const representativePosition = normalizePersonText(elements.annexRepresentativePosition.value);
@@ -2576,6 +2621,17 @@
     const payload = pendingAnnexGeneration;
     if (!payload) {
       closeAnnexGenerationInfoDialog();
+      return;
+    }
+
+    const cutoffSession = findRegistrationSession(payload.sessionId);
+    if (!annexIsManagedInApp(cutoffSession)) {
+      pendingAnnexGeneration = null;
+      closeAnnexGenerationInfoDialog();
+      showNotice(
+        "warning",
+        "El Anexo I de las sesiones anteriores al 01/10/2026 se gestionó fuera de esta aplicación.",
+      );
       return;
     }
 
@@ -2781,6 +2837,15 @@
   }
 
   function openDocumentUploadDialog(sessionId) {
+    const cutoffSession = findRegistrationSession(sessionId);
+
+    if (!annexIsManagedInApp(cutoffSession)) {
+      showNotice(
+        "warning",
+        "El Anexo I de las sesiones anteriores al 01/10/2026 se gestionó fuera de esta aplicación.",
+      );
+      return;
+    }
     const session = findRegistrationSession(sessionId);
     if (!session) return;
     clearNotice(elements.documentUploadNotice);
@@ -2800,6 +2865,18 @@
     event.preventDefault();
     clearNotice(elements.documentUploadNotice);
     const sessionId = elements.documentSessionId.value;
+    const cutoffSessionForUpload =
+      findRegistrationSession(elements.documentSessionId.value);
+
+    if (!annexIsManagedInApp(cutoffSessionForUpload)) {
+      showNotice(
+        "warning",
+        "El Anexo I de las sesiones anteriores al 01/10/2026 se gestionó fuera de esta aplicación.",
+        elements.documentUploadNotice,
+      );
+      return;
+    }
+
     const file = elements.signedAnnexFile.files?.[0];
     let reservation = null;
     elements.submitDocumentUpload.disabled = true;
