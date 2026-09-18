@@ -3271,6 +3271,92 @@
     }
   }
 
+  async function refreshSessionParticipantsAfterRegistration(
+    sessionId,
+    previousParticipantCount,
+  ) {
+    const municipalityId = currentProfile?.municipality?.id;
+
+    if (!municipalityId) return false;
+
+    /*
+     * Normalmente la inscripción aparece inmediatamente.
+     * Si session_registrations todavía no la devuelve, hacemos
+     * varias consultas silenciosas y dejamos de consultar en
+     * cuanto el contador de esta sesión aumenta.
+     *
+     * El intervalo total cubre aproximadamente un minuto.
+     */
+    const retryDelays = [
+      750,
+      1250,
+      2000,
+      4000,
+      8000,
+      15000,
+      30000,
+    ];
+
+    if (
+      registrationsForSession(sessionId).length
+      > previousParticipantCount
+    ) {
+      return true;
+    }
+
+    for (const delay of retryDelays) {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, delay);
+      });
+
+      /*
+       * Si entretanto se cambia de ayuntamiento, este refresco
+       * deja de tener sentido y se cancela.
+       */
+      if (
+        currentProfile?.municipality?.id
+        !== municipalityId
+      ) {
+        return false;
+      }
+
+      try {
+        await loadRegistrations({ silent: true });
+      } catch (error) {
+        console.warn(
+          "No se pudo actualizar todavía el listado de participantes.",
+          error,
+        );
+        continue;
+      }
+
+      const currentParticipantCount =
+        registrationsForSession(sessionId).length;
+
+      if (
+        currentParticipantCount
+        > previousParticipantCount
+      ) {
+        renderSessions();
+
+        /*
+         * renderSessions reconstruye las tarjetas, así que volvemos
+         * a mostrar el enlace de la sesión que acabamos de inscribir.
+         */
+        revealSessionLinkAfterRegistration(sessionId);
+
+        return true;
+      }
+    }
+
+    console.warn(
+      "La inscripción se completó, pero el contador de participantes "
+      + "no se actualizó automáticamente dentro del periodo de refresco.",
+    );
+
+    return false;
+  }
+
   async function reloadPortalData() {
     await loadPrograms();
     await loadRegistrations();
@@ -3502,6 +3588,10 @@
       };
       const encrypted = await encryptIdentity(identity, context, activeEncryptionKey.public_key_pem);
       elements.submitInitialRegistration.textContent = "Registrando…";
+
+      const previousParticipantCount =
+        registrationsForSession(sessionId).length;
+
       const { error } = await municipalRpc("register_initial", {
         p_session_id: sessionId,
         p_program_id: programId,
@@ -3529,6 +3619,11 @@
       );
 
       openRegistrationSuccessDialog(sessionId, "Inicial");
+
+      void refreshSessionParticipantsAfterRegistration(
+        sessionId,
+        previousParticipantCount,
+      );
 
       if (linkShown) {
         window.setTimeout(
@@ -3566,6 +3661,9 @@
     }
     elements.submitFinalRegistration.disabled = true;
     try {
+      const previousParticipantCount =
+        registrationsForSession(sessionId).length;
+
       const { error } = await municipalRpc("register_final", { p_participant_id: participantId, p_session_id: sessionId, p_program_id: programId });
       if (error) throw new Error(error.message);
       closeFinalDialog();
@@ -3583,6 +3681,11 @@
       );
 
       openRegistrationSuccessDialog(sessionId, "Final");
+
+      void refreshSessionParticipantsAfterRegistration(
+        sessionId,
+        previousParticipantCount,
+      );
 
       if (linkShown) {
         window.setTimeout(
