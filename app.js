@@ -2029,7 +2029,7 @@
     return `<article class="document-item document-mode-item ${visualStateClass} ${viewStateClass}" data-session-id="${group.session.id}">
       <div>
         <h3>${escapeHtml(group.session.title || "Sesión")}</h3>
-        <p>${escapeHtml(formatDate(group.session.session_date))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
+        <p>${escapeHtml(formatDate(group.session.session_date))} · ${escapeHtml(formatTime(group.session.start_time))}–${escapeHtml(formatTime(group.session.end_time))} · ${group.session.session_type === "initial" ? "Inicial" : "Final"}</p>
         <small>${group.total} inscritas · ${group.attended} asistieron · ${group.absent} no asistieron${group.pendingAttendance ? ` · ${group.pendingAttendance} pendientes de asistencia` : ""}</small>
       </div>
       ${contentHtml}
@@ -2865,7 +2865,7 @@
     clearNotice(elements.documentUploadNotice);
     elements.documentUploadForm.reset();
     elements.documentSessionId.value = session.id;
-    elements.documentSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)}`;
+    elements.documentSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
     elements.documentUploadDialog.showModal();
   }
 
