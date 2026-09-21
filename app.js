@@ -120,6 +120,8 @@
     pendingAnnexCreateCount: document.querySelector("#pendingAnnexCreateCount"),
     pendingAnnexUpload: document.querySelector("#pendingAnnexUpload"),
     pendingAnnexUploadCount: document.querySelector("#pendingAnnexUploadCount"),
+    pendingAnnexDownload: document.querySelector("#pendingAnnexDownload"),
+    pendingAnnexDownloadCount: document.querySelector("#pendingAnnexDownloadCount"),
     pendingIncidents: document.querySelector("#pendingIncidents"),
     pendingIncidentCount: document.querySelector("#pendingIncidentCount"),
     incidentTotalCount: document.querySelector("#incidentTotalCount"),
@@ -2082,10 +2084,32 @@
 
     let annexCreate = 0;
     let annexUpload = 0;
+    let annexDownload = 0;
 
     for (const group of documentGroups()) {
       const sessionId = String(group.session?.id || "");
       const document = latestDocumentForSession(group.session.id);
+
+      /*
+       * Una vez validado por la Dirección Provincial,
+       * existe una actuación municipal pendiente hasta que
+       * se descargue realmente el PDF validado.
+       */
+      if (document?.validation_status === "validated") {
+        const validatedDownloaded =
+          annexDocumentDownloadRequests.some(
+            (item) =>
+              item.municipal_document_id === document.id
+              && item.variant === "provincial_validated"
+              && item.status === "downloaded",
+          );
+
+        if (!validatedDownloaded) {
+          annexDownload += 1;
+        }
+
+        continue;
+      }
 
       const finished = sessionHasFinished(group.session);
       const attendanceClosed = group.pendingAttendance === 0;
@@ -2114,8 +2138,13 @@
     return {
       annexCreate,
       annexUpload,
+      annexDownload,
       incidents: incidents.length,
-      total: annexCreate + annexUpload + incidents.length,
+      total:
+        annexCreate
+        + annexUpload
+        + annexDownload
+        + incidents.length,
     };
   }
 
@@ -2142,6 +2171,9 @@
     elements.pendingAnnexUploadCount.textContent =
       String(summary.annexUpload);
 
+    elements.pendingAnnexDownloadCount.textContent =
+      String(summary.annexDownload);
+
     elements.pendingIncidentCount.textContent =
       String(summary.incidents);
 
@@ -2150,6 +2182,9 @@
 
     elements.pendingAnnexUpload.hidden =
       summary.annexUpload === 0;
+
+    elements.pendingAnnexDownload.hidden =
+      summary.annexDownload === 0;
 
     elements.pendingIncidents.hidden =
       summary.incidents === 0;
@@ -4977,6 +5012,11 @@
       else if (action === "incidents") { renderIncidents(); setActiveSection("incidentsSection"); }
       else if (action === "annex-create") openDocumentSection("create");
       else if (action === "annex-upload") openDocumentSection("upload");
+      else if (action === "annex-download-pending") {
+        openDocumentSection("download");
+        documentQuickFilter = "available";
+        renderDocuments();
+      }
       else if (action === "annex-download") openDocumentSection("download");
     }));
     document.querySelectorAll(".js-back-dashboard").forEach((button) => button.addEventListener("click", openDashboard));
