@@ -445,7 +445,8 @@
     const session = registration.session ?? {};
     const today = localToday();
     const canChange = ["pending", "confirmed"].includes(registration.status)
-      && registration.sync_status !== "processing"
+      && registration.sync_status === "synced"
+      && participant.sync_status === "synced"
       && session.session_date >= today;
     const canCancel = ["pending", "confirmed", "incident"].includes(registration.status);
     const statusText = statusLabel(registration.status);
@@ -1238,7 +1239,8 @@
     const transferred = registration.status === "cancelled" && Boolean(registration.transferred_to_session_id);
     const today = localToday();
     const canChange = ["pending", "confirmed"].includes(registration.status)
-      && registration.sync_status !== "processing"
+      && registration.sync_status === "synced"
+      && participant.sync_status === "synced"
       && session.session_date >= today
       && !transferred;
     const canCancel = ["pending", "confirmed", "incident"].includes(registration.status) && !transferred;
