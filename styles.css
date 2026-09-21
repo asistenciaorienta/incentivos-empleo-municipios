@@ -2648,3 +2648,55 @@ select:focus {
     white-space: normal;
   }
 }
+
+/* ==========================================================
+   v1.9.9 · colores de actuaciones pendientes
+   ========================================================== */
+
+/* Anexo listo para preparar · azul */
+.pending-management-item.pending-management-info {
+  border-left-color: #2563eb;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.075),
+      rgba(255, 255, 255, 0.96) 58%
+    );
+}
+
+.pending-management-info .pending-management-label,
+.pending-management-info .pending-management-action {
+  color: #1d4ed8;
+}
+
+/* Anexo pendiente de subir · ámbar */
+.pending-management-item.pending-management-warning {
+  border-left-color: #d99000;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(217, 144, 0, 0.085),
+      rgba(255, 255, 255, 0.96) 58%
+    );
+}
+
+.pending-management-warning .pending-management-label,
+.pending-management-warning .pending-management-action {
+  color: #946200;
+}
+
+/* Anexo validado disponible · verde */
+.pending-management-item.pending-management-success {
+  border-left-color: #07825f;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(7, 130, 95, 0.08),
+      rgba(255, 255, 255, 0.96) 58%
+    );
+}
+
+.pending-management-success .pending-management-label,
+.pending-management-success .pending-management-action {
+  color: #047857;
+}
