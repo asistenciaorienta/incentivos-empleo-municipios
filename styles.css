@@ -2700,3 +2700,17 @@ select:focus {
 .pending-management-success .pending-management-action {
   color: #047857;
 }
+
+/* v1.10.2 · ayuda en acciones durante sincronización */
+.disabled-action-help {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.disabled-action-help > .button {
+  width: 100%;
+}
+
+.disabled-action-help > .button:disabled {
+  pointer-events: none;
+}

@@ -444,11 +444,25 @@
     const participant = registration.participant ?? {};
     const session = registration.session ?? {};
     const today = localToday();
+    const syncReady = registration.sync_status === "synced"
+      && participant.sync_status === "synced";
+    const syncProcessing = registration.sync_status === "processing"
+      || participant.sync_status === "processing";
+    const syncError = registration.sync_status === "error"
+      || participant.sync_status === "error";
     const canChange = ["pending", "confirmed"].includes(registration.status)
-      && registration.sync_status === "synced"
-      && participant.sync_status === "synced"
+      && syncReady
       && session.session_date >= today;
-    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status);
+    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status)
+      && !syncProcessing;
+    const changeHelp = !canChange && !syncReady
+      ? (syncError
+        ? "La inscripción requiere revisión antes de poder cambiarla de sesión."
+        : "Espera unos instantes mientras la inscripción se sincroniza con el servidor SAE. Después podrás cambiarla de sesión.")
+      : "";
+    const cancelHelp = !canCancel && syncProcessing
+      ? "Espera unos instantes mientras termina la sincronización con el servidor SAE."
+      : "";
     const statusText = statusLabel(registration.status);
     const incident = registration.incident_message || participant.incident_message || "";
     return `
@@ -463,8 +477,12 @@
           <small>${escapeHtml(registration.program_name_snapshot || "Sin programa")}</small>
         </div>
         <div class="session-participant-actions">
-          <button class="button secondary small js-change-session" type="button" data-registration-id="${registration.id}" ${canChange ? "" : "disabled"}>Cambiar sesión</button>
-          <button class="button danger-outline small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>Cancelar</button>
+          <span class="disabled-action-help" ${changeHelp ? `title="${escapeHtml(changeHelp)}"` : ""}>
+            <button class="button secondary small js-change-session" type="button" data-registration-id="${registration.id}" ${canChange ? "" : "disabled"}>Cambiar sesión</button>
+          </span>
+          <span class="disabled-action-help" ${cancelHelp ? `title="${escapeHtml(cancelHelp)}"` : ""}>
+            <button class="button danger-outline small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>Cancelar</button>
+          </span>
         </div>
       </div>`;
   }
@@ -1238,12 +1256,33 @@
     const session = registration.session ?? {};
     const transferred = registration.status === "cancelled" && Boolean(registration.transferred_to_session_id);
     const today = localToday();
+    const syncReady = registration.sync_status === "synced"
+      && participant.sync_status === "synced";
+    const syncProcessing = registration.sync_status === "processing"
+      || participant.sync_status === "processing";
+    const syncError = registration.sync_status === "error"
+      || participant.sync_status === "error";
     const canChange = ["pending", "confirmed"].includes(registration.status)
-      && registration.sync_status === "synced"
-      && participant.sync_status === "synced"
+      && syncReady
       && session.session_date >= today
       && !transferred;
-    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status) && !transferred;
+    const canCancel = ["pending", "confirmed", "incident"].includes(registration.status)
+      && !syncProcessing
+      && !transferred;
+    const changeHelp = canChange
+      ? ""
+      : transferred
+        ? "Esta inscripción ya ha sido trasladada."
+        : session.session_date < today
+          ? "No se puede cambiar una inscripción de una sesión pasada."
+          : syncError
+            ? "La inscripción requiere revisión antes de poder cambiarla de sesión."
+            : !syncReady
+              ? "Espera unos instantes mientras la inscripción se sincroniza con el servidor SAE. Después podrás cambiarla de sesión."
+              : "";
+    const cancelHelp = !canCancel && syncProcessing
+      ? "Espera unos instantes mientras termina la sincronización con el servidor SAE."
+      : "";
     const statusText = transferred ? "Trasladada" : statusLabel(registration.status);
     const statusClass = transferred ? "transferred" : registration.status;
     const transferredTo = registration.transferred_to_session;
@@ -1276,8 +1315,12 @@
           </div>
         </div>
         <div class="registration-actions">
-          <button class="button primary small js-change-session" type="button" data-registration-id="${registration.id}" ${canChange ? "" : "disabled"}>${canChange ? "Cambiar de sesión" : "Cambio no disponible"}</button>
-          <button class="button secondary small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>${canCancel ? "Cancelar inscripción" : "Sin cancelación"}</button>
+          <span class="disabled-action-help" ${changeHelp ? `title="${escapeHtml(changeHelp)}"` : ""}>
+            <button class="button primary small js-change-session" type="button" data-registration-id="${registration.id}" ${canChange ? "" : "disabled"}>${canChange ? "Cambiar de sesión" : "Cambio no disponible"}</button>
+          </span>
+          <span class="disabled-action-help" ${cancelHelp ? `title="${escapeHtml(cancelHelp)}"` : ""}>
+            <button class="button secondary small js-cancel-registration" type="button" data-registration-id="${registration.id}" ${canCancel ? "" : "disabled"}>${canCancel ? "Cancelar inscripción" : "Sin cancelación"}</button>
+          </span>
         </div>
       </article>`;
   }
