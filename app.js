@@ -1251,10 +1251,21 @@
       </article>`;
   }
 
+  function isBusinessRejectedRegistration(registration) {
+    return registration.status === "cancelled"
+      && registration.sync_status === "synced"
+      && !registration.transferred_to_session_id
+      && Boolean(
+        String(registration.incident_message || "").trim()
+      );
+  }
+
+
   function registrationItem(registration) {
     const participant = registration.participant ?? {};
     const session = registration.session ?? {};
     const transferred = registration.status === "cancelled" && Boolean(registration.transferred_to_session_id);
+    const businessRejected = isBusinessRejectedRegistration(registration);
     const today = localToday();
     const syncReady = registration.sync_status === "synced"
       && participant.sync_status === "synced";
@@ -1283,8 +1294,17 @@
     const cancelHelp = !canCancel && syncProcessing
       ? "Espera unos instantes mientras termina la sincronización con el servidor SAE."
       : "";
-    const statusText = transferred ? "Trasladada" : statusLabel(registration.status);
-    const statusClass = transferred ? "transferred" : registration.status;
+    const statusText = businessRejected
+      ? "No inscrita"
+      : transferred
+        ? "Trasladada"
+        : statusLabel(registration.status);
+
+    const statusClass = businessRejected
+      ? "cancelled"
+      : transferred
+        ? "transferred"
+        : registration.status;
     const transferredTo = registration.transferred_to_session;
     const registrationIncident =
       registration.incident_message
@@ -2253,6 +2273,10 @@
     const items = [];
 
     for (const registration of registrations) {
+      if (isBusinessRejectedRegistration(registration)) {
+        continue;
+      }
+
       const participant = registration.participant ?? {};
       const registrationHasIncident =
         registration.status === "incident"
@@ -3613,6 +3637,109 @@
     }, 1400);
   }
 
+  async function waitForInitialRegistrationValidation(
+    registrationId,
+    participantId,
+    timeoutMs = 90000,
+  ) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const [
+        registrationResult,
+        participantResult,
+      ] = await Promise.all([
+        client
+          .from("session_registrations")
+          .select(
+            "id,status,sync_status,incident_message"
+          )
+          .eq("id", registrationId)
+          .single(),
+
+        client
+          .from("participants")
+          .select(
+            "id,progress_status,sync_status,incident_message"
+          )
+          .eq("id", participantId)
+          .single(),
+      ]);
+
+      if (registrationResult.error) {
+        throw new Error(
+          `No se pudo comprobar la validación de la inscripción: ${registrationResult.error.message}`
+        );
+      }
+
+      if (participantResult.error) {
+        throw new Error(
+          `No se pudo comprobar la validación de la persona: ${participantResult.error.message}`
+        );
+      }
+
+      const registration = registrationResult.data;
+      const participant = participantResult.data;
+
+      const businessRejected =
+        registration.status === "cancelled"
+        && registration.sync_status === "synced"
+        && Boolean(
+          String(registration.incident_message || "").trim()
+        );
+
+      if (businessRejected) {
+        return {
+          state: "rejected",
+          message:
+            registration.incident_message
+            || "La persona no puede realizar esta inscripción.",
+        };
+      }
+
+      if (
+        registration.status === "cancelled"
+        && registration.sync_status === "synced"
+      ) {
+        return {
+          state: "cancelled",
+          message: "La solicitud de inscripción ha sido cancelada.",
+        };
+      }
+
+      if (
+        registration.sync_status === "error"
+        || participant.sync_status === "error"
+      ) {
+        return {
+          state: "error",
+          message:
+            registration.incident_message
+            || participant.incident_message
+            || "La inscripción requiere revisión por el SAE.",
+        };
+      }
+
+      if (
+        registration.sync_status === "synced"
+        && participant.sync_status === "synced"
+      ) {
+        return {
+          state: "accepted",
+        };
+      }
+
+      await new Promise(
+        (resolve) => window.setTimeout(resolve, 2000)
+      );
+    }
+
+    return {
+      state: "pending",
+    };
+  }
+
+
   async function handleInitialRegistration(event) {
     event.preventDefault();
     clearNotice(elements.registrationNotice);
@@ -3669,10 +3796,7 @@
       const encrypted = await encryptIdentity(identity, context, activeEncryptionKey.public_key_pem);
       elements.submitInitialRegistration.textContent = "Registrando…";
 
-      const previousParticipantCount =
-        registrationsForSession(sessionId).length;
-
-      const { error } = await municipalRpc("register_initial", {
+      const { data, error } = await municipalRpc("register_initial", {
         p_session_id: sessionId,
         p_program_id: programId,
         p_display_name: displayName(firstName, firstSurname, secondSurname),
@@ -3684,31 +3808,100 @@
         p_payload_version: 1
       });
       if (error) throw new Error(error.message);
+
+      const rpcResult =
+        Array.isArray(data)
+          ? data[0]
+          : data;
+
+      const participantId =
+        rpcResult?.participant_id;
+
+      const registrationId =
+        rpcResult?.registration_id;
+
+      if (!participantId || !registrationId) {
+        throw new Error(
+          "No se han recibido los identificadores necesarios para validar la inscripción."
+        );
+      }
+
       closeInitialDialog();
-      await loadRegistrations();
-      await loadSessions();
       setActiveSection("sessionsSection");
 
-      const linkShown = revealSessionLinkAfterRegistration(sessionId);
-
       showNotice(
-        "success",
-        linkShown
-          ? "La persona ha quedado inscrita correctamente. El enlace de la sesión se muestra debajo y está listo para copiar."
-          : "La persona ha quedado inscrita correctamente.",
+        "info",
+        "Solicitud enviada. Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Esta comprobación puede tardar alrededor de un minuto.",
       );
 
-      openRegistrationSuccessDialog(sessionId, "Inicial");
+      let validation;
 
-      void refreshSessionParticipantsAfterRegistration(
-        sessionId,
-        previousParticipantCount,
-      );
+      try {
+        validation =
+          await waitForInitialRegistrationValidation(
+            registrationId,
+            participantId,
+          );
 
-      if (linkShown) {
-        window.setTimeout(
-          () => revealSessionLinkAfterRegistration(sessionId),
-          80,
+        await Promise.all([
+          loadRegistrations(),
+          loadSessions(),
+        ]);
+      } catch (validationError) {
+        showNotice(
+          "error",
+          validationError instanceof Error
+            ? validationError.message
+            : "No se pudo comprobar el resultado de la validación.",
+        );
+
+        return;
+      }
+
+      if (validation.state === "accepted") {
+        const linkShown =
+          revealSessionLinkAfterRegistration(sessionId);
+
+        showNotice(
+          "success",
+          linkShown
+            ? "La inscripción ha sido validada correctamente por el servidor SAE. El enlace de la sesión se muestra debajo y está listo para copiar."
+            : "La inscripción ha sido validada correctamente por el servidor SAE.",
+        );
+
+        openRegistrationSuccessDialog(
+          sessionId,
+          "Inicial"
+        );
+
+        if (linkShown) {
+          window.setTimeout(
+            () =>
+              revealSessionLinkAfterRegistration(
+                sessionId
+              ),
+            80,
+          );
+        }
+      } else if (validation.state === "rejected") {
+        showNotice(
+          "warning",
+          `No se ha realizado la inscripción. ${validation.message}`,
+        );
+      } else if (validation.state === "cancelled") {
+        showNotice(
+          "warning",
+          validation.message,
+        );
+      } else if (validation.state === "error") {
+        showNotice(
+          "error",
+          validation.message,
+        );
+      } else {
+        showNotice(
+          "info",
+          "La solicitud sigue pendiente de validación por el servidor SAE. Puedes continuar trabajando y pulsar Actualizar más adelante para consultar el resultado.",
         );
       }
     } catch (error) {
