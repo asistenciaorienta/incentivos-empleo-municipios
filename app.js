@@ -169,6 +169,7 @@
     registrationSuccessDialog: document.querySelector("#registrationSuccessDialog"),
     registrationSuccessTitle: document.querySelector("#registrationSuccessTitle"),
     registrationSuccessSessionSummary: document.querySelector("#registrationSuccessSessionSummary"),
+    registrationValidationSpinner: document.querySelector("#registrationValidationSpinner"),
     registrationSuccessLinkBox: document.querySelector("#registrationSuccessLinkBox"),
     registrationSuccessLink: document.querySelector("#registrationSuccessLink"),
     registrationSuccessNoLink: document.querySelector("#registrationSuccessNoLink"),
@@ -3613,6 +3614,7 @@
         ? `${session.title} · ${formatDate(session.session_date)}. Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Espera unos instantes…`
         : "Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Espera unos instantes…";
 
+    elements.registrationValidationSpinner.hidden = false;
     elements.registrationSuccessLinkBox.hidden = true;
     elements.registrationSuccessNoLink.hidden = true;
 
@@ -3639,6 +3641,7 @@
     elements.registrationSuccessSessionSummary.textContent =
       message;
 
+    elements.registrationValidationSpinner.hidden = true;
     elements.registrationSuccessLinkBox.hidden = true;
     elements.registrationSuccessNoLink.hidden = true;
 
@@ -3673,6 +3676,8 @@
 
     elements.registrationSuccessSessionSummary.textContent =
       `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
+
+    elements.registrationValidationSpinner.hidden = true;
 
     if (meetingUrl) {
       elements.registrationSuccessLink.href =
