@@ -3565,17 +3565,106 @@
     elements.finalDialog.close();
   }
 
+  function registrationResultKicker() {
+    return elements.registrationSuccessDialog
+      ?.querySelector(".section-kicker") ?? null;
+  }
+
+
+  function setRegistrationResultDialogClosable(closable) {
+    elements.registrationSuccessDialog.dataset.busy =
+      closable ? "false" : "true";
+
+    elements.closeRegistrationSuccessDialog.hidden =
+      !closable;
+
+    elements.closeRegistrationSuccessButton.hidden =
+      !closable;
+  }
+
+
   function closeRegistrationSuccessDialog() {
+    if (
+      elements.registrationSuccessDialog?.dataset.busy
+      === "true"
+    ) {
+      return;
+    }
+
     if (elements.registrationSuccessDialog?.open) {
       elements.registrationSuccessDialog.close();
     }
   }
 
+
+  function openRegistrationValidationDialog(sessionId) {
+    const session = findSession(sessionId);
+    const kicker = registrationResultKicker();
+
+    if (kicker) {
+      kicker.textContent = "Validación SAE";
+    }
+
+    elements.registrationSuccessTitle.textContent =
+      "Validando inscripción";
+
+    elements.registrationSuccessSessionSummary.textContent =
+      session
+        ? `${session.title} · ${formatDate(session.session_date)}. Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Espera unos instantes…`
+        : "Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Espera unos instantes…";
+
+    elements.registrationSuccessLinkBox.hidden = true;
+    elements.registrationSuccessNoLink.hidden = true;
+
+    setRegistrationResultDialogClosable(false);
+
+    if (!elements.registrationSuccessDialog.open) {
+      elements.registrationSuccessDialog.showModal();
+    }
+  }
+
+
+  function showRegistrationValidationResult(
+    title,
+    message,
+    kickerText = "Validación SAE",
+  ) {
+    const kicker = registrationResultKicker();
+
+    if (kicker) {
+      kicker.textContent = kickerText;
+    }
+
+    elements.registrationSuccessTitle.textContent = title;
+    elements.registrationSuccessSessionSummary.textContent =
+      message;
+
+    elements.registrationSuccessLinkBox.hidden = true;
+    elements.registrationSuccessNoLink.hidden = true;
+
+    setRegistrationResultDialogClosable(true);
+
+    if (!elements.registrationSuccessDialog.open) {
+      elements.registrationSuccessDialog.showModal();
+    }
+  }
+
+
   function openRegistrationSuccessDialog(sessionId, phase) {
     const session = findSession(sessionId);
     if (!session) return;
 
-    const meetingUrl = String(session.meeting_url || "").trim();
+    const meetingUrl =
+      String(session.meeting_url || "").trim();
+
+    const kicker = registrationResultKicker();
+
+    if (kicker) {
+      kicker.textContent =
+        phase === "Final"
+          ? "Inscripción final"
+          : "Inscripción completada";
+    }
 
     elements.registrationSuccessTitle.textContent =
       phase === "Final"
@@ -3586,16 +3675,25 @@
       `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
 
     if (meetingUrl) {
-      elements.registrationSuccessLink.href = meetingUrl;
-      elements.registrationSuccessLink.textContent = meetingUrl;
+      elements.registrationSuccessLink.href =
+        meetingUrl;
 
-      elements.copyRegistrationSuccessLink.dataset.link = meetingUrl;
-      elements.copyRegistrationSuccessLink.textContent = "Copiar enlace";
+      elements.registrationSuccessLink.textContent =
+        meetingUrl;
+
+      elements.copyRegistrationSuccessLink.dataset.link =
+        meetingUrl;
+
+      elements.copyRegistrationSuccessLink.textContent =
+        "Copiar enlace";
 
       elements.registrationSuccessLinkBox.hidden = false;
       elements.registrationSuccessNoLink.hidden = true;
     } else {
-      elements.registrationSuccessLink.removeAttribute("href");
+      elements.registrationSuccessLink.removeAttribute(
+        "href"
+      );
+
       elements.registrationSuccessLink.textContent = "—";
 
       delete elements.copyRegistrationSuccessLink.dataset.link;
@@ -3604,7 +3702,11 @@
       elements.registrationSuccessNoLink.hidden = false;
     }
 
-    elements.registrationSuccessDialog.showModal();
+    setRegistrationResultDialogClosable(true);
+
+    if (!elements.registrationSuccessDialog.open) {
+      elements.registrationSuccessDialog.showModal();
+    }
   }
 
   async function copyRegistrationSuccessLinkToClipboard() {
@@ -3829,10 +3931,7 @@
       closeInitialDialog();
       setActiveSection("sessionsSection");
 
-      showNotice(
-        "info",
-        "Solicitud enviada. Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Esta comprobación puede tardar alrededor de un minuto.",
-      );
+      openRegistrationValidationDialog(sessionId);
 
       let validation;
 
@@ -3843,13 +3942,16 @@
             participantId,
           );
 
-        await Promise.all([
-          loadRegistrations(),
-          loadSessions(),
-        ]);
+        /*
+         * Primero actualizamos las inscripciones.
+         * Después se renderizan las sesiones usando ya
+         * el nuevo contenido de registrations.
+         */
+        await loadRegistrations();
+        await loadSessions();
       } catch (validationError) {
-        showNotice(
-          "error",
+        showRegistrationValidationResult(
+          "No se pudo comprobar la inscripción",
           validationError instanceof Error
             ? validationError.message
             : "No se pudo comprobar el resultado de la validación.",
@@ -3861,13 +3963,6 @@
       if (validation.state === "accepted") {
         const linkShown =
           revealSessionLinkAfterRegistration(sessionId);
-
-        showNotice(
-          "success",
-          linkShown
-            ? "La inscripción ha sido validada correctamente por el servidor SAE. El enlace de la sesión se muestra debajo y está listo para copiar."
-            : "La inscripción ha sido validada correctamente por el servidor SAE.",
-        );
 
         openRegistrationSuccessDialog(
           sessionId,
@@ -3884,24 +3979,24 @@
           );
         }
       } else if (validation.state === "rejected") {
-        showNotice(
-          "warning",
-          `No se ha realizado la inscripción. ${validation.message}`,
+        showRegistrationValidationResult(
+          "No se ha realizado la inscripción",
+          validation.message,
         );
       } else if (validation.state === "cancelled") {
-        showNotice(
-          "warning",
+        showRegistrationValidationResult(
+          "Inscripción cancelada",
           validation.message,
         );
       } else if (validation.state === "error") {
-        showNotice(
-          "error",
+        showRegistrationValidationResult(
+          "La inscripción requiere revisión",
           validation.message,
         );
       } else {
-        showNotice(
-          "info",
-          "La solicitud sigue pendiente de validación por el servidor SAE. Puedes continuar trabajando y pulsar Actualizar más adelante para consultar el resultado.",
+        showRegistrationValidationResult(
+          "La validación continúa",
+          "La solicitud sigue pendiente de validación por el servidor SAE. Puedes cerrar esta ventana y pulsar Actualizar más adelante para consultar el resultado.",
         );
       }
     } catch (error) {
@@ -5381,6 +5476,18 @@
     elements.closeRegistrationSuccessButton.addEventListener(
       "click",
       closeRegistrationSuccessDialog,
+    );
+
+    elements.registrationSuccessDialog.addEventListener(
+      "cancel",
+      (event) => {
+        if (
+          elements.registrationSuccessDialog.dataset.busy
+          === "true"
+        ) {
+          event.preventDefault();
+        }
+      },
     );
 
     elements.copyRegistrationSuccessLink.addEventListener(
