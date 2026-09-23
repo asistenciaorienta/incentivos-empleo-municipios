@@ -1003,6 +1003,67 @@
         </span>
       </div>
 
+      <div
+        id="registrationIdentityChoiceBox"
+        class="registration-identity-choice"
+        hidden
+      >
+        <div class="privacy-box">
+          <p>
+            <strong>El DNI/NIE coincide con una persona ya registrada, pero el nombre o los apellidos son diferentes.</strong>
+          </p>
+          <p class="muted">
+            Comprueba qué datos son correctos antes de continuar.
+          </p>
+        </div>
+
+        <div class="registration-identity-comparison">
+          <div class="registration-identity-option">
+            <span>Datos ya registrados</span>
+            <strong id="registrationIdentityRegistered">—</strong>
+            <small>
+              Se muestran de forma abreviada por protección de datos.
+            </small>
+          </div>
+
+          <div class="registration-identity-option">
+            <span>Datos introducidos ahora</span>
+            <strong id="registrationIdentityEntered">—</strong>
+          </div>
+        </div>
+
+        <p class="registration-identity-help">
+          Elige qué nombre y apellidos deben quedar asociados a esta persona.
+          El DNI/NIE seguirá correspondiendo a la misma ficha.
+        </p>
+
+        <div class="registration-identity-actions">
+          <button
+            id="keepRegisteredIdentity"
+            class="button secondary"
+            type="button"
+          >
+            Mantener datos registrados
+          </button>
+
+          <button
+            id="useEnteredIdentity"
+            class="button primary"
+            type="button"
+          >
+            Usar los datos introducidos
+          </button>
+
+          <button
+            id="cancelIdentityRegistration"
+            class="button danger"
+            type="button"
+          >
+            Cancelar inscripción
+          </button>
+        </div>
+      </div>
+
       <div id="registrationSuccessLinkBox" class="privacy-box">
         <p><strong>Enlace de la sesión</strong></p>
 

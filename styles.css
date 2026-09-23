@@ -2758,3 +2758,74 @@ select:focus {
     animation-duration: 1.8s;
   }
 }
+
+
+/* ==========================================================
+   Confirmación de identidad en reinscripciones
+   ========================================================== */
+
+.registration-identity-choice {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.registration-identity-choice[hidden] {
+  display: none;
+}
+
+.registration-identity-comparison {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(220px, 1fr)
+    );
+  gap: 0.85rem;
+}
+
+.registration-identity-option {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--surface-soft);
+}
+
+.registration-identity-option > span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.registration-identity-option > strong {
+  overflow-wrap: anywhere;
+}
+
+.registration-identity-option > small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.registration-identity-help {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.registration-identity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+@media (max-width: 640px) {
+  .registration-identity-actions {
+    flex-direction: column;
+  }
+
+  .registration-identity-actions > .button {
+    width: 100%;
+  }
+}

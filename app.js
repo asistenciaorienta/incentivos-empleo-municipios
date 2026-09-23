@@ -170,6 +170,12 @@
     registrationSuccessTitle: document.querySelector("#registrationSuccessTitle"),
     registrationSuccessSessionSummary: document.querySelector("#registrationSuccessSessionSummary"),
     registrationValidationSpinner: document.querySelector("#registrationValidationSpinner"),
+    registrationIdentityChoiceBox: document.querySelector("#registrationIdentityChoiceBox"),
+    registrationIdentityRegistered: document.querySelector("#registrationIdentityRegistered"),
+    registrationIdentityEntered: document.querySelector("#registrationIdentityEntered"),
+    keepRegisteredIdentity: document.querySelector("#keepRegisteredIdentity"),
+    useEnteredIdentity: document.querySelector("#useEnteredIdentity"),
+    cancelIdentityRegistration: document.querySelector("#cancelIdentityRegistration"),
     registrationSuccessLinkBox: document.querySelector("#registrationSuccessLinkBox"),
     registrationSuccessLink: document.querySelector("#registrationSuccessLink"),
     registrationSuccessNoLink: document.querySelector("#registrationSuccessNoLink"),
@@ -3598,6 +3604,119 @@
   }
 
 
+  function hideRegistrationIdentityChoice() {
+    if (!elements.registrationIdentityChoiceBox) {
+      return;
+    }
+
+    elements.registrationIdentityChoiceBox.hidden = true;
+  }
+
+
+  function askRegistrationIdentityChoice(
+    registeredDisplayName,
+    enteredIdentityName,
+  ) {
+    const kicker = registrationResultKicker();
+
+    if (kicker) {
+      kicker.textContent = "Confirmación de identidad";
+    }
+
+    elements.registrationSuccessTitle.textContent =
+      "Comprueba los datos de la persona";
+
+    elements.registrationSuccessSessionSummary.textContent =
+      "El servidor SAE ha encontrado el mismo DNI/NIE en una ficha anterior.";
+
+    elements.registrationValidationSpinner.hidden = true;
+    elements.registrationSuccessLinkBox.hidden = true;
+    elements.registrationSuccessNoLink.hidden = true;
+
+    elements.registrationIdentityRegistered.textContent =
+      String(
+        registeredDisplayName
+        || "Datos registrados",
+      ).trim();
+
+    elements.registrationIdentityEntered.textContent =
+      String(
+        enteredIdentityName
+        || "Datos introducidos",
+      ).trim();
+
+    elements.registrationIdentityChoiceBox.hidden = false;
+
+    const buttons = [
+      elements.keepRegisteredIdentity,
+      elements.useEnteredIdentity,
+      elements.cancelIdentityRegistration,
+    ];
+
+    for (const button of buttons) {
+      button.disabled = false;
+    }
+
+    /*
+     * La ventana no se puede cerrar con la X ni con Escape:
+     * el usuario debe elegir mantener, sustituir o cancelar.
+     */
+    setRegistrationResultDialogClosable(false);
+
+    if (!elements.registrationSuccessDialog.open) {
+      elements.registrationSuccessDialog.showModal();
+    }
+
+    return new Promise((resolve) => {
+      const cleanup = () => {
+        elements.keepRegisteredIdentity.removeEventListener(
+          "click",
+          chooseKeep,
+        );
+
+        elements.useEnteredIdentity.removeEventListener(
+          "click",
+          chooseReplace,
+        );
+
+        elements.cancelIdentityRegistration.removeEventListener(
+          "click",
+          chooseCancel,
+        );
+      };
+
+      const finish = (choice) => {
+        cleanup();
+
+        for (const button of buttons) {
+          button.disabled = true;
+        }
+
+        resolve(choice);
+      };
+
+      const chooseKeep = () => finish("keep");
+      const chooseReplace = () => finish("replace");
+      const chooseCancel = () => finish("cancel");
+
+      elements.keepRegisteredIdentity.addEventListener(
+        "click",
+        chooseKeep,
+      );
+
+      elements.useEnteredIdentity.addEventListener(
+        "click",
+        chooseReplace,
+      );
+
+      elements.cancelIdentityRegistration.addEventListener(
+        "click",
+        chooseCancel,
+      );
+    });
+  }
+
+
   function openRegistrationValidationDialog(sessionId) {
     const session = findSession(sessionId);
     const kicker = registrationResultKicker();
@@ -3613,6 +3732,8 @@
       session
         ? `${session.title} · ${formatDate(session.session_date)}. Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Espera unos instantes…`
         : "Estamos comprobando el DNI/NIE y validando la inscripción con el servidor SAE. Espera unos instantes…";
+
+    hideRegistrationIdentityChoice();
 
     elements.registrationValidationSpinner.hidden = false;
     elements.registrationSuccessLinkBox.hidden = true;
@@ -3640,6 +3761,8 @@
     elements.registrationSuccessTitle.textContent = title;
     elements.registrationSuccessSessionSummary.textContent =
       message;
+
+    hideRegistrationIdentityChoice();
 
     elements.registrationValidationSpinner.hidden = true;
     elements.registrationSuccessLinkBox.hidden = true;
@@ -3676,6 +3799,8 @@
 
     elements.registrationSuccessSessionSummary.textContent =
       `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
+
+    hideRegistrationIdentityChoice();
 
     elements.registrationValidationSpinner.hidden = true;
 
@@ -3748,6 +3873,7 @@
     registrationId,
     participantId,
     timeoutMs = 90000,
+    ignoreIdentityChoiceRequired = false,
   ) {
     const startedAt = Date.now();
 
@@ -3787,6 +3913,74 @@
 
       const registration = registrationResult.data;
       const participant = participantResult.data;
+
+      const identityChoicePrefix =
+        "IDENTITY_CHOICE_REQUIRED:";
+
+      const identityIncident =
+        String(
+          registration.incident_message
+          || "",
+        );
+
+      const identityChoiceRequired =
+        registration.status === "pending"
+        && registration.sync_status === "error"
+        && identityIncident.startsWith(
+          identityChoicePrefix,
+        );
+
+      /*
+       * markIdentityChoiceRequired prepara primero la ficha
+       * provisional y publica después el marcador de la
+       * inscripción. Durante esos pocos instantes no debemos
+       * presentar un error genérico al Ayuntamiento.
+       */
+      const identityParticipantPending =
+        participant.sync_status === "error"
+        && String(
+          participant.incident_message
+          || "",
+        )
+          === "Pendiente de confirmar los datos identificativos.";
+
+      if (identityChoiceRequired) {
+        if (!ignoreIdentityChoiceRequired) {
+          return {
+            state:
+              "identity_choice_required",
+            registeredDisplayName:
+              identityIncident
+                .slice(
+                  identityChoicePrefix.length,
+                )
+                .trim()
+              || "Datos registrados",
+          };
+        }
+
+        await new Promise(
+          (resolve) =>
+            window.setTimeout(
+              resolve,
+              2000,
+            ),
+        );
+
+        continue;
+      }
+
+      if (identityParticipantPending) {
+        await new Promise(
+          (resolve) =>
+            window.setTimeout(
+              resolve,
+              2000,
+            ),
+        );
+
+        continue;
+      }
 
       const businessRejected =
         registration.status === "cancelled"
@@ -3844,6 +4038,86 @@
     return {
       state: "pending",
     };
+  }
+
+
+  async function resolveInitialIdentityChoice({
+    validation,
+    registrationId,
+    participantId,
+    sessionId,
+    enteredIdentityName,
+  }) {
+    if (
+      validation?.state
+      !== "identity_choice_required"
+    ) {
+      return validation;
+    }
+
+    const choice =
+      await askRegistrationIdentityChoice(
+        validation.registeredDisplayName,
+        enteredIdentityName,
+      );
+
+    const {
+      data,
+      error,
+    } = await municipalRpc(
+      "resolve_identity_choice",
+      {
+        p_registration_id:
+          registrationId,
+        p_choice:
+          choice,
+      },
+    );
+
+    if (error) {
+      throw new Error(
+        `No se pudo registrar la decisión sobre los datos identificativos: ${error.message}`,
+      );
+    }
+
+    if (data !== true) {
+      throw new Error(
+        "El servidor no confirmó la decisión sobre los datos identificativos.",
+      );
+    }
+
+    openRegistrationValidationDialog(
+      sessionId,
+    );
+
+    if (choice === "cancel") {
+      elements.registrationSuccessTitle.textContent =
+        "Cancelando inscripción";
+
+      elements.registrationSuccessSessionSummary.textContent =
+        "Estamos cancelando la solicitud y eliminando los datos cifrados provisionales. Espera unos instantes…";
+    } else {
+      elements.registrationSuccessTitle.textContent =
+        "Aplicando la decisión";
+
+      elements.registrationSuccessSessionSummary.textContent =
+        choice === "keep"
+          ? "Estamos conservando los datos ya registrados y completando la inscripción. Espera unos instantes…"
+          : "Estamos actualizando el nombre y los apellidos indicados y completando la inscripción. Espera unos instantes…";
+    }
+
+    /*
+     * Mientras el worker recoge la decisión, la inscripción
+     * conserva temporalmente el marcador
+     * IDENTITY_CHOICE_REQUIRED. En esta segunda espera lo
+     * ignoramos hasta recibir el resultado definitivo.
+     */
+    return waitForInitialRegistrationValidation(
+      registrationId,
+      participantId,
+      90000,
+      true,
+    );
   }
 
 
@@ -3946,6 +4220,20 @@
             registrationId,
             participantId,
           );
+
+        validation =
+          await resolveInitialIdentityChoice({
+            validation,
+            registrationId,
+            participantId,
+            sessionId,
+            enteredIdentityName:
+              [
+                firstName,
+                firstSurname,
+                secondSurname,
+              ].join(" "),
+          });
 
         /*
          * Primero actualizamos las inscripciones.
