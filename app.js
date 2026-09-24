@@ -459,9 +459,10 @@
       || participant.sync_status === "error";
     const canChange = ["pending", "confirmed"].includes(registration.status)
       && syncReady
-      && session.session_date >= today;
+      && !sessionHasStarted(session);
     const canCancel = ["pending", "confirmed", "incident"].includes(registration.status)
-      && !syncProcessing;
+      && !syncProcessing
+      && !sessionHasStarted(session);
     const changeHelp = !canChange && !syncReady
       ? (syncError
         ? "La inscripción requiere revisión antes de poder cambiarla de sesión."
@@ -630,9 +631,20 @@
     }
 
     const personSearchActive = matchingPersonSessionIds.size > 0;
-    const phaseSessions = sessions.filter((session) => session.session_type === sessionSummaryFilter);
+
+    const registrationPortalSessions = sessions.filter(
+      sessionVisibleInRegistrationPortal,
+    );
+
+    const phaseSessions = registrationPortalSessions.filter(
+      (session) => session.session_type === sessionSummaryFilter,
+    );
+
     const sourceSessions = personSearchActive
-      ? sessions.filter((session) => matchingPersonSessionIds.has(String(session.id)))
+      ? registrationPortalSessions.filter(
+          (session) =>
+            matchingPersonSessionIds.has(String(session.id)),
+        )
       : phaseSessions;
 
     const visible = sourceSessions.filter((session) => {
@@ -1180,13 +1192,30 @@
     const isFull = available <= 0;
     const sessionRegistrations = registrationsForSession(session.id);
     const participantCount = sessionRegistrations.length;
-    const canRegisterInitial = isInitial && session.registration_open && !isFull;
-    const canRegisterFinal = !isInitial && session.registration_open && !isFull && eligibleParticipants.length > 0;
-    let actionLabel = isFull ? "Sesión completa" : "Inscripción cerrada";
+    const registrationStarted = sessionHasStarted(session);
+    const registrationAvailable =
+      session.registration_open
+      && !registrationStarted
+      && !isFull;
+
+    const canRegisterInitial =
+      isInitial && registrationAvailable;
+
+    const canRegisterFinal =
+      !isInitial
+      && registrationAvailable
+      && eligibleParticipants.length > 0;
+
+    let actionLabel = registrationStarted
+      ? "Sesión iniciada"
+      : (isFull ? "Sesión completa" : "Inscripción cerrada");
     let actionClass = "";
     let registrationNote = "";
 
-    if (canRegisterInitial) {
+    if (registrationStarted) {
+      registrationNote =
+        "La sesión ya ha comenzado. No se admiten nuevas inscripciones ni cambios. El enlace permanecerá disponible durante 40 minutos.";
+    } else if (canRegisterInitial) {
       actionLabel = "Inscribir";
       actionClass = "js-register-initial";
     } else if (canRegisterFinal) {
@@ -1218,7 +1247,7 @@
             <h3>${escapeHtml(session.title)}</h3>
             <p>${escapeHtml(formatTime(session.start_time))}–${escapeHtml(formatTime(session.end_time))} · ${escapeHtml(session.trainer || "Personal formador pendiente")}</p>
             <div class="session-browser-meta">
-              <span class="badge ${session.registration_open && !isFull ? "open" : "closed"}">${isFull ? "Sesión completa" : (session.registration_open ? "Inscripción abierta" : "Inscripción cerrada")}</span>
+              <span class="badge ${registrationAvailable ? "open" : "closed"}">${registrationStarted ? "Inscripción finalizada" : (isFull ? "Sesión completa" : (session.registration_open ? "Inscripción abierta" : "Inscripción cerrada"))}</span>
               <span>${isFull ? "Sin plazas disponibles" : `${available} plazas disponibles`}</span>
               <span>${participantCount} participante${participantCount === 1 ? "" : "s"}</span>
             </div>
@@ -1282,10 +1311,11 @@
       || participant.sync_status === "error";
     const canChange = ["pending", "confirmed"].includes(registration.status)
       && syncReady
-      && session.session_date >= today
+      && !sessionHasStarted(session)
       && !transferred;
     const canCancel = ["pending", "confirmed", "incident"].includes(registration.status)
       && !syncProcessing
+      && !sessionHasStarted(session)
       && !transferred;
     const changeHelp = canChange
       ? ""
@@ -1388,6 +1418,87 @@
       hourCycle: "h23",
     }).formatToParts(new Date());
     return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  }
+
+  const SESSION_REGISTRATION_GRACE_MINUTES = 40;
+
+  function madridWallClockMs() {
+    const now = madridNowParts();
+
+    return Date.UTC(
+      Number(now.year),
+      Number(now.month) - 1,
+      Number(now.day),
+      Number(now.hour),
+      Number(now.minute),
+      Number(now.second),
+    );
+  }
+
+  function sessionStartWallClockMs(session) {
+    if (!session?.session_date || !session?.start_time) return null;
+
+    const [year, month, day] = String(session.session_date)
+      .split("-")
+      .map(Number);
+
+    const [hour = 0, minute = 0, second = 0] =
+      String(session.start_time)
+        .split(":")
+        .map(Number);
+
+    if (
+      !Number.isFinite(year)
+      || !Number.isFinite(month)
+      || !Number.isFinite(day)
+      || !Number.isFinite(hour)
+      || !Number.isFinite(minute)
+      || !Number.isFinite(second)
+    ) {
+      return null;
+    }
+
+    return Date.UTC(
+      year,
+      month - 1,
+      day,
+      hour,
+      minute,
+      second,
+    );
+  }
+
+  function sessionHasStarted(session) {
+    const start = sessionStartWallClockMs(session);
+    if (start === null) return false;
+
+    return madridWallClockMs() >= start;
+  }
+
+  function sessionRegistrationWindowExpired(session) {
+    const start = sessionStartWallClockMs(session);
+    if (start === null) return false;
+
+    return madridWallClockMs()
+      > start + (SESSION_REGISTRATION_GRACE_MINUTES * 60 * 1000);
+  }
+
+  function municipalityHasRegistrationForSession(session) {
+    return registrations.some((registration) =>
+      String(registration.session?.id || "") === String(session?.id || "")
+      && registration.status !== "cancelled"
+    );
+  }
+
+  function sessionVisibleInRegistrationPortal(session) {
+    if (sessionRegistrationWindowExpired(session)) return false;
+
+    // Antes de la hora de inicio: visible con normalidad.
+    if (!sessionHasStarted(session)) return true;
+
+    // Desde el inicio hasta +40 min:
+    // solo permanece para ayuntamientos ya inscritos.
+    return municipalityHasRegistrationForSession(session);
   }
 
   function sessionHasFinished(session) {
@@ -3366,15 +3477,49 @@
       const today = localToday();
       const { data, error } = await client
         .from("sessions")
-        .select(`id, session_type, title, session_date, start_time, end_time, trainer, meeting_url, capacity_regular, regular_available, maximum_available, registration_open, published, status`)
+        .select(`id, session_type, title, session_date, start_time, end_time, trainer, capacity_regular, regular_available, maximum_available, registration_open, published, status`)
         .eq("published", true)
         .eq("status", "scheduled")
         .gte("session_date", today)
         .order("session_date", { ascending: true })
         .order("start_time", { ascending: true });
       if (error) throw new Error(error.message);
-      sessions = Array.isArray(data) ? data.filter((session) => !sessionHasFinished(session)) : [];
-      elements.sessionCount.textContent = String(sessions.length);
+
+      const {
+        data: meetingLinks,
+        error: meetingLinksError,
+      } = await municipalRpc(
+        "get_session_meeting_links",
+      );
+
+      if (meetingLinksError) {
+        throw new Error(meetingLinksError.message);
+      }
+
+      const meetingUrlBySession = new Map(
+        (Array.isArray(meetingLinks) ? meetingLinks : []).map(
+          (item) => [
+            String(item.session_id),
+            String(item.meeting_url || "").trim(),
+          ],
+        ),
+      );
+
+      sessions = Array.isArray(data)
+        ? data
+            .map((session) => ({
+              ...session,
+              meeting_url:
+                meetingUrlBySession.get(String(session.id)) || "",
+            }))
+            .filter(
+              (session) =>
+                !sessionRegistrationWindowExpired(session),
+            )
+        : [];
+      elements.sessionCount.textContent = String(
+        sessions.filter(sessionVisibleInRegistrationPortal).length,
+      );
       renderSessions();
     } finally {
       elements.sessionsLoading.hidden = true;
@@ -3526,6 +3671,16 @@
   function openInitialDialog(sessionId) {
     const session = findSession(sessionId);
     if (!session) return;
+
+    if (sessionHasStarted(session)) {
+      renderSessions();
+      showNotice(
+        "warning",
+        "La sesión ya ha comenzado y no admite nuevas inscripciones.",
+      );
+      return;
+    }
+
     clearNotice(elements.registrationNotice);
     elements.initialForm.reset();
     const availablePrograms = programsForSession(session);
@@ -3551,6 +3706,16 @@
   function openFinalDialog(sessionId) {
     const session = findSession(sessionId);
     if (!session) return;
+
+    if (sessionHasStarted(session)) {
+      renderSessions();
+      showNotice(
+        "warning",
+        "La sesión ya ha comenzado y no admite nuevas inscripciones.",
+      );
+      return;
+    }
+
     clearNotice(elements.finalRegistrationNotice);
     elements.finalForm.reset();
     const availablePrograms = programsForSession(session);
@@ -4133,6 +4298,20 @@
     const sessionId = elements.initialSessionId.value;
     const programId = elements.initialProgram.value;
 
+    const selectedSession = sessions.find(
+      (session) => String(session.id) === String(sessionId),
+    );
+
+    if (!selectedSession || sessionHasStarted(selectedSession)) {
+      showNotice(
+        "warning",
+        "El plazo de inscripción ha finalizado porque la sesión ya ha comenzado.",
+        elements.registrationNotice,
+      );
+      renderSessions();
+      return;
+    }
+
     if (!firstName || !firstSurname || !secondSurname) {
       showNotice("warning", "Completa el nombre y los dos apellidos.", elements.registrationNotice);
       return;
@@ -4308,6 +4487,21 @@
     const participantId = elements.eligibleParticipant.value;
     const sessionId = elements.finalSessionId.value;
     const programId = elements.finalProgram.value;
+
+    const selectedSession = sessions.find(
+      (session) => String(session.id) === String(sessionId),
+    );
+
+    if (!selectedSession || sessionHasStarted(selectedSession)) {
+      showNotice(
+        "warning",
+        "El plazo de inscripción ha finalizado porque la sesión ya ha comenzado.",
+        elements.finalRegistrationNotice,
+      );
+      renderSessions();
+      return;
+    }
+
     if (!participantId) {
       showNotice("warning", "Selecciona una persona disponible.", elements.finalRegistrationNotice);
       return;
@@ -4381,6 +4575,7 @@
 
     return sessions.filter((session) => {
       if (!session.registration_open || Number(session.regular_available ?? 0) < 1) return false;
+      if (sessionHasStarted(session)) return false;
       if (session.session_type !== registration.phase) return false;
       if (session.id === currentSessionId) return false;
 
@@ -4397,7 +4592,6 @@
     const registration = registrations.find((item) => item.id === registrationId);
     if (!registration) return;
 
-    const today = localToday();
     if (!["pending", "confirmed"].includes(registration.status)) {
       showNotice("warning", "Esta inscripción no puede cambiarse mientras tenga ese estado.");
       return;
@@ -4406,8 +4600,11 @@
       showNotice("warning", "La inscripción se está sincronizando. Pulsa Actualizar dentro de unos segundos.");
       return;
     }
-    if (!registration.session || registration.session.session_date < today) {
-      showNotice("warning", "No se puede trasladar una inscripción de una sesión ya celebrada.");
+    if (!registration.session || sessionHasStarted(registration.session)) {
+      showNotice(
+        "warning",
+        "No se puede cambiar una inscripción una vez alcanzada la hora de inicio de la sesión.",
+      );
       return;
     }
 
@@ -4457,7 +4654,26 @@
 
     const targetSessionId = elements.changeTargetSession.value;
     if (!targetSessionId) {
-      showNotice("warning", "Selecciona la nueva sesión.", elements.changeSessionNotice);
+      showNotice(
+        "warning",
+        "Selecciona la nueva sesión.",
+        elements.changeSessionNotice,
+      );
+      return;
+    }
+
+    const targetSession = sessions.find(
+      (session) =>
+        String(session.id) === String(targetSessionId),
+    );
+
+    if (!targetSession || sessionHasStarted(targetSession)) {
+      showNotice(
+        "warning",
+        "La sesión de destino ya ha comenzado y no admite nuevas inscripciones.",
+        elements.changeSessionNotice,
+      );
+      renderSessions();
       return;
     }
 
@@ -4495,8 +4711,20 @@
   function openCancelDialog(registrationId) {
     registrationToCancel = registrations.find((item) => item.id === registrationId) ?? null;
     if (!registrationToCancel) return;
+
     const participant = registrationToCancel.participant ?? {};
     const session = registrationToCancel.session ?? {};
+
+    if (sessionHasStarted(session)) {
+      registrationToCancel = null;
+      showNotice(
+        "warning",
+        "La sesión ya ha comenzado y la inscripción ya no puede cancelarse.",
+      );
+      renderRegistrations();
+      return;
+    }
+
     elements.cancelDialogText.textContent = `Se cancelará la inscripción de ${participant.display_name || "la persona"} en “${session.title || "la sesión"}” y se liberará su plaza.`;
     elements.cancelDialog.showModal();
   }
@@ -4508,6 +4736,17 @@
 
   async function confirmCancellation() {
     if (!registrationToCancel) return;
+
+    if (sessionHasStarted(registrationToCancel.session)) {
+      closeCancelDialog();
+      showNotice(
+        "warning",
+        "La sesión ya ha comenzado y la inscripción ya no puede cancelarse.",
+      );
+      renderRegistrations();
+      return;
+    }
+
     elements.confirmCancelButton.disabled = true;
     try {
       const { data, error } = await municipalRpc("cancel_registration", { p_registration_id: registrationToCancel.id });
@@ -5825,6 +6064,25 @@
     }
     client = window.supabase.createClient(url, publishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     bindEvents();
+
+    // Actualiza los cortes horarios aunque el Ayuntamiento
+    // mantenga abierta la pantalla sin pulsar «Actualizar».
+    window.setInterval(() => {
+      if (!currentUser) return;
+
+      const visibleSessionCount =
+        sessions.filter(sessionVisibleInRegistrationPortal).length;
+
+      if (elements.sessionCount) {
+        elements.sessionCount.textContent =
+          String(visibleSessionCount);
+      }
+
+      renderSessions();
+      renderRegistrations();
+      renderParticipantTracking();
+    }, 10_000);
+
     client.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session) {
         clearSupportMode();
