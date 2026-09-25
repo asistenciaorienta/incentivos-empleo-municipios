@@ -174,6 +174,7 @@
     registrationSuccessDialog: document.querySelector("#registrationSuccessDialog"),
     registrationSuccessTitle: document.querySelector("#registrationSuccessTitle"),
     registrationSuccessSessionSummary: document.querySelector("#registrationSuccessSessionSummary"),
+    registrationSuccessContractNotice: document.querySelector("#registrationSuccessContractNotice"),
     registrationValidationSpinner: document.querySelector("#registrationValidationSpinner"),
     registrationIdentityChoiceBox: document.querySelector("#registrationIdentityChoiceBox"),
     registrationIdentityRegistered: document.querySelector("#registrationIdentityRegistered"),
@@ -4242,6 +4243,11 @@
       return;
     }
 
+    if (elements.registrationSuccessContractNotice) {
+      elements.registrationSuccessContractNotice.hidden = true;
+      elements.registrationSuccessContractNotice.innerHTML = "";
+    }
+
     if (elements.registrationSuccessDialog?.open) {
       elements.registrationSuccessDialog.close();
     }
@@ -4420,7 +4426,11 @@
   }
 
 
-  function openRegistrationSuccessDialog(sessionId, phase) {
+  function openRegistrationSuccessDialog(
+    sessionId,
+    phase,
+    participantId = null,
+  ) {
     const session = findSession(sessionId);
     if (!session) return;
 
@@ -4443,6 +4453,26 @@
 
     elements.registrationSuccessSessionSummary.textContent =
       `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}–${formatTime(session.end_time)}`;
+
+    const resultParticipant =
+      phase === "Final" && participantId
+        ? participantFromRegistrations(participantId)
+        : null;
+
+    const historicalWithoutContractDates =
+      Boolean(resultParticipant)
+      && !resultParticipant.contract_start_date
+      && !resultParticipant.contract_end_date;
+
+    if (elements.registrationSuccessContractNotice) {
+      elements.registrationSuccessContractNotice.hidden =
+        !historicalWithoutContractDates;
+
+      elements.registrationSuccessContractNotice.innerHTML =
+        historicalWithoutContractDates
+          ? "<p>Las sesiones grupales se impartirán durante el periodo de contratación de las personas participantes, con anterioridad a su finalización.</p><p>Durante su participación en el programa la persona desempleada participante recibirá al menos dos sesiones de orientación, individuales o colectivas, desarrolladas de acuerdo con los Protocolos del Servicio Andaluz de Empleo.</p>"
+          : "";
+    }
 
     hideRegistrationIdentityChoice();
 
@@ -5069,7 +5099,11 @@
           : "La persona ha quedado inscrita en la sesión final.",
       );
 
-      openRegistrationSuccessDialog(sessionId, "Final");
+      openRegistrationSuccessDialog(
+        sessionId,
+        "Final",
+        participantId,
+      );
 
       void refreshSessionParticipantsAfterRegistration(
         sessionId,
