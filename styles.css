@@ -2901,3 +2901,100 @@ select:focus {
     flex-direction: column;
   }
 }
+
+
+/* v1.12 · Pendientes de sesión final por contrato */
+
+.contract-final-pending-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.contract-final-pending-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.contract-final-pending-item {
+  border: 1px solid var(--border-color, #d8dde3);
+  border-radius: 14px;
+  padding: 18px;
+  background: var(--surface-color, #fff);
+}
+
+.contract-final-pending-person {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.contract-final-pending-person h3 {
+  margin: 4px 0 2px;
+}
+
+.contract-final-pending-person p {
+  margin: 0;
+}
+
+.contract-final-days {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(181, 113, 0, 0.1);
+}
+
+.contract-final-pending-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 14px;
+  font-size: 0.94rem;
+}
+
+.contract-final-pending-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.contract-final-pending-action label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.contract-final-pending-action select {
+  width: 100%;
+}
+
+.contract-final-pending-no-session {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(181, 113, 0, 0.08);
+  font-size: 0.94rem;
+}
+
+@media (max-width: 640px) {
+  .contract-final-pending-person {
+    display: grid;
+  }
+
+  .contract-final-days {
+    justify-self: start;
+  }
+
+  .contract-final-pending-action {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-final-pending-action .button {
+    width: 100%;
+  }
+}

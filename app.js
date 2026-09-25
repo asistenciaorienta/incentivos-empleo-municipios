@@ -126,6 +126,10 @@
     pendingIncidentCount: document.querySelector("#pendingIncidentCount"),
     pendingContractFinal: document.querySelector("#pendingContractFinal"),
     pendingContractFinalCount: document.querySelector("#pendingContractFinalCount"),
+    pendingContractFinalDialog: document.querySelector("#pendingContractFinalDialog"),
+    pendingContractFinalList: document.querySelector("#pendingContractFinalList"),
+    closePendingContractFinalDialog: document.querySelector("#closePendingContractFinalDialog"),
+    closePendingContractFinalButton: document.querySelector("#closePendingContractFinalButton"),
     incidentTotalCount: document.querySelector("#incidentTotalCount"),
     incidentRegistrationCount: document.querySelector("#incidentRegistrationCount"),
     incidentAnnexCount: document.querySelector("#incidentAnnexCount"),
@@ -1399,6 +1403,243 @@
       return true;
     });
   }
+
+  function pendingFinalSessionsForParticipant(participant) {
+    if (!participant?.id) return [];
+
+    return sessions
+      .filter(
+        (session) =>
+          session.session_type === "final"
+          && session.status === "scheduled"
+          && session.registration_open
+          && !sessionHasStarted(session)
+          && Number(session.regular_available ?? 0) > 0
+          && participantFitsSessionContract(
+            participant,
+            session
+          )
+          && programsForSession(session).length > 0
+      )
+      .sort((a, b) => {
+        const aKey =
+          `${a.session_date || ""} ${a.start_time || ""}`;
+
+        const bKey =
+          `${b.session_date || ""} ${b.start_time || ""}`;
+
+        return aKey.localeCompare(bKey);
+      });
+  }
+
+
+  function pendingFinalParticipantItem(participant) {
+    const remainingDays =
+      dateDifferenceInDays(
+        localToday(),
+        participant.contract_end_date
+      );
+
+    const availableSessions =
+      pendingFinalSessionsForParticipant(participant);
+
+    const daysText =
+      remainingDays === 1
+        ? "Queda 1 día"
+        : `Quedan ${remainingDays} días`;
+
+    const sessionOptions =
+      availableSessions
+        .map(
+          (session) => `
+            <option value="${escapeHtml(session.id)}">
+              ${escapeHtml(session.title || "Sesión final")}
+              · ${escapeHtml(formatDate(session.session_date))}
+              · ${escapeHtml(formatTime(session.start_time))}
+              – ${escapeHtml(formatTime(session.end_time))}
+            </option>
+          `
+        )
+        .join("");
+
+    const sessionControl =
+      availableSessions.length > 0
+        ? `
+          <div class="contract-final-pending-action">
+            <label>
+              <span>Sesión final</span>
+              <select
+                class="js-pending-final-session-select"
+                aria-label="Selecciona la sesión final"
+              >
+                ${sessionOptions}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              class="button primary small js-pending-final-register"
+              data-participant-id="${escapeHtml(participant.id)}"
+            >
+              Inscribir
+            </button>
+          </div>
+        `
+        : `
+          <div class="contract-final-pending-no-session">
+            No hay actualmente ninguna sesión final abierta,
+            con plaza y dentro del periodo de contratación.
+          </div>
+        `;
+
+    return `
+      <article
+        class="contract-final-pending-item"
+        data-participant-id="${escapeHtml(participant.id)}"
+      >
+        <div class="contract-final-pending-person">
+          <div>
+            <span class="section-kicker">
+              Sesión final pendiente
+            </span>
+
+            <h3>
+              ${escapeHtml(
+                participant.display_name || "Participante"
+              )}
+            </h3>
+
+            <p class="muted">
+              ${escapeHtml(
+                participant.masked_document || ""
+              )}
+            </p>
+          </div>
+
+          <span class="contract-final-days">
+            ${escapeHtml(daysText)}
+          </span>
+        </div>
+
+        <div class="contract-final-pending-dates">
+          <span>
+            <strong>Contrato:</strong>
+            ${escapeHtml(
+              formatDate(participant.contract_start_date)
+            )}
+            –
+            ${escapeHtml(
+              formatDate(participant.contract_end_date)
+            )}
+          </span>
+
+          <span>
+            <strong>Finaliza:</strong>
+            ${escapeHtml(
+              formatDate(participant.contract_end_date)
+            )}
+          </span>
+        </div>
+
+        ${sessionControl}
+      </article>
+    `;
+  }
+
+
+  function renderPendingContractFinalDialog() {
+    if (!elements.pendingContractFinalList) return;
+
+    const participants =
+      contractFinalPendingParticipants()
+        .slice()
+        .sort((a, b) => {
+          const byEnd =
+            String(a.contract_end_date || "")
+              .localeCompare(
+                String(b.contract_end_date || "")
+              );
+
+          if (byEnd !== 0) return byEnd;
+
+          return String(a.display_name || "")
+            .localeCompare(
+              String(b.display_name || ""),
+              "es"
+            );
+        });
+
+    if (participants.length === 0) {
+      elements.pendingContractFinalList.innerHTML = `
+        <div class="empty-state">
+          No hay personas pendientes de sesión final
+          por proximidad del fin de contrato.
+        </div>
+      `;
+
+      return;
+    }
+
+    elements.pendingContractFinalList.innerHTML =
+      participants
+        .map(pendingFinalParticipantItem)
+        .join("");
+  }
+
+
+  function openPendingContractFinalDialog() {
+    if (!elements.pendingContractFinalDialog) return;
+
+    renderPendingContractFinalDialog();
+    elements.pendingContractFinalDialog.showModal();
+  }
+
+
+  function closePendingContractFinalDialog() {
+    if (elements.pendingContractFinalDialog?.open) {
+      elements.pendingContractFinalDialog.close();
+    }
+  }
+
+
+  function openPendingFinalRegistration(
+    participantId,
+    sessionId
+  ) {
+    const participant =
+      contractFinalPendingParticipants()
+        .find(
+          (item) =>
+            String(item.id)
+            === String(participantId)
+        );
+
+    const session =
+      pendingFinalSessionsForParticipant(participant)
+        .find(
+          (item) =>
+            String(item.id)
+            === String(sessionId)
+        );
+
+    if (!participant || !session) {
+      renderPendingContractFinalDialog();
+
+      showPortalToast(
+        "La persona o la sesión ya no están disponibles."
+      );
+
+      return;
+    }
+
+    closePendingContractFinalDialog();
+
+    openFinalDialog(
+      session.id,
+      participant.id
+    );
+  }
+
 
   function participantTrackingContractPanel(group) {
     const participant = group?.participant;
@@ -4165,7 +4406,10 @@
     elements.initialDialog.close();
   }
 
-  function openFinalDialog(sessionId) {
+  function openFinalDialog(
+    sessionId,
+    preferredParticipantId = ""
+  ) {
     const session = findSession(sessionId);
     if (!session) return;
 
@@ -4198,7 +4442,25 @@
         )
         .join("");
 
-    const selectedParticipant = availableParticipants[0];
+    const selectedParticipant =
+      availableParticipants.find(
+        (participant) =>
+          String(participant.id)
+          === String(preferredParticipantId)
+      )
+      ?? availableParticipants[0];
+
+    if (!selectedParticipant) {
+      showNotice(
+        "warning",
+        "No hay personas disponibles para esta sesión final."
+      );
+
+      return;
+    }
+
+    elements.eligibleParticipant.value =
+      String(selectedParticipant.id);
 
     elements.finalProgram.innerHTML =
       programOptions(
@@ -6585,8 +6847,54 @@
     elements.documentType.addEventListener("change", updateSafePreview);
     elements.pendingContractFinal?.addEventListener(
       "click",
-      () => {
-        setActiveSection("sessionsSection");
+      openPendingContractFinalDialog
+    );
+
+    elements.closePendingContractFinalDialog?.addEventListener(
+      "click",
+      closePendingContractFinalDialog
+    );
+
+    elements.closePendingContractFinalButton?.addEventListener(
+      "click",
+      closePendingContractFinalDialog
+    );
+
+    elements.pendingContractFinalList?.addEventListener(
+      "click",
+      (event) => {
+        const button =
+          event.target.closest(
+            ".js-pending-final-register"
+          );
+
+        if (!button || button.disabled) return;
+
+        const row =
+          button.closest(
+            ".contract-final-pending-item"
+          );
+
+        const select =
+          row?.querySelector(
+            ".js-pending-final-session-select"
+          );
+
+        const sessionId =
+          select?.value || "";
+
+        if (!sessionId) {
+          showPortalToast(
+            "Selecciona una sesión final."
+          );
+
+          return;
+        }
+
+        openPendingFinalRegistration(
+          button.dataset.participantId,
+          sessionId
+        );
       }
     );
 

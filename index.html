@@ -329,7 +329,7 @@
 
               <strong>
                 <span id="pendingContractFinalCount">0</span>
-                contratos próximos a finalizar
+                personas próximas a finalizar contrato
               </strong>
 
               <small>
@@ -338,7 +338,7 @@
               </small>
 
               <span class="pending-management-action">
-                Ir a sesiones ›
+                Ver personas ›
               </span>
             </button>
 
@@ -1018,6 +1018,54 @@
       </div>
     </form>
   </dialog>
+
+
+    <dialog
+      id="pendingContractFinalDialog"
+      class="modal-dialog"
+      aria-labelledby="pendingContractFinalDialogTitle"
+    >
+      <div class="modal-card contract-final-pending-modal">
+        <div class="modal-heading">
+          <div>
+            <p class="section-kicker">
+              Pendientes por gestionar
+            </p>
+
+            <h2 id="pendingContractFinalDialogTitle">
+              Personas próximas a finalizar contrato
+            </h2>
+
+            <p class="muted">
+              Selecciona la persona y la sesión final
+              en la que deseas inscribirla.
+            </p>
+          </div>
+
+          <button
+            id="closePendingContractFinalDialog"
+            class="icon-button"
+            type="button"
+            aria-label="Cerrar"
+          >×</button>
+        </div>
+
+        <div
+          id="pendingContractFinalList"
+          class="contract-final-pending-list"
+        ></div>
+
+        <div class="modal-actions">
+          <button
+            id="closePendingContractFinalButton"
+            class="button secondary"
+            type="button"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </dialog>
 
 
     <dialog
