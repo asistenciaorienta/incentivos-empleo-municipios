@@ -1237,29 +1237,40 @@
     );
   }
 
-  function updateFinalContractNotice() {
+  function updateFinalContractNotice(selectedParticipant = null) {
     if (!elements.finalHistoricalContractNotice) return;
 
-    const session = findSession(elements.finalSessionId.value);
+    let participant = selectedParticipant;
 
-    const participant =
-      eligibleParticipantsForSession(session)
-        .find(
-          (item) =>
-            item.id === elements.eligibleParticipant.value
-        );
+    if (!participant) {
+      const session = findSession(
+        elements.finalSessionId.value
+      );
+
+      participant =
+        eligibleParticipantsForSession(session)
+          .find(
+            (item) =>
+              String(item.id)
+              === String(elements.eligibleParticipant.value)
+          );
+    }
 
     const historical =
-      participant
+      Boolean(participant)
       && !participant.contract_start_date
       && !participant.contract_end_date;
 
-    elements.finalHistoricalContractNotice.hidden = !historical;
+    if (historical) {
+      elements.finalHistoricalContractNotice.textContent =
+        "Las sesiones grupales se impartirán durante el periodo de contratación de las personas participantes, con anterioridad a su finalización.\n\nDurante su participación en el programa la persona desempleada participante recibirá al menos dos sesiones de orientación, individuales o colectivas, desarrolladas de acuerdo con los Protocolos del Servicio Andaluz de Empleo.";
 
-    elements.finalHistoricalContractNotice.textContent =
-      historical
-        ? "Las sesiones grupales se impartirán durante el periodo de contratación de las personas participantes, con anterioridad a su finalización.\n\nDurante su participación en el programa la persona desempleada participante recibirá al menos dos sesiones de orientación, individuales o colectivas, desarrolladas de acuerdo con los Protocolos del Servicio Andaluz de Empleo."
-        : "";
+      elements.finalHistoricalContractNotice.hidden = false;
+      elements.finalHistoricalContractNotice.removeAttribute("hidden");
+    } else {
+      elements.finalHistoricalContractNotice.textContent = "";
+      elements.finalHistoricalContractNotice.hidden = true;
+    }
   }
 
   function registrationFitsParticipantContract(registration) {
@@ -4194,9 +4205,9 @@
         selectedParticipant?.previous_program_id || ""
       );
 
-    updateFinalContractNotice();
-
     elements.finalDialog.showModal();
+
+    updateFinalContractNotice(selectedParticipant);
   }
 
   function closeFinalDialog() {
@@ -6566,7 +6577,7 @@
           participant?.previous_program_id || ""
         );
 
-      updateFinalContractNotice();
+      updateFinalContractNotice(participant);
     });
     elements.closeFinalDialog.addEventListener("click", closeFinalDialog);
     elements.cancelFinalRegistration.addEventListener("click", closeFinalDialog);
