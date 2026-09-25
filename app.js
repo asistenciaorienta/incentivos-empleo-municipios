@@ -124,6 +124,8 @@
     pendingAnnexDownloadCount: document.querySelector("#pendingAnnexDownloadCount"),
     pendingIncidents: document.querySelector("#pendingIncidents"),
     pendingIncidentCount: document.querySelector("#pendingIncidentCount"),
+    pendingContractFinal: document.querySelector("#pendingContractFinal"),
+    pendingContractFinalCount: document.querySelector("#pendingContractFinalCount"),
     incidentTotalCount: document.querySelector("#incidentTotalCount"),
     incidentRegistrationCount: document.querySelector("#incidentRegistrationCount"),
     incidentAnnexCount: document.querySelector("#incidentAnnexCount"),
@@ -154,6 +156,8 @@
     initialMaterialConfirmed: document.querySelector("#initialMaterialConfirmed"),
     initialProgram: document.querySelector("#initialProgram"),
     initialProgramHelp: document.querySelector("#initialProgramHelp"),
+    contractStartDate: document.querySelector("#contractStartDate"),
+    contractEndDate: document.querySelector("#contractEndDate"),
     safePreview: document.querySelector("#safePreview"),
     finalDialog: document.querySelector("#finalRegistrationDialog"),
     finalForm: document.querySelector("#finalRegistrationForm"),
@@ -161,6 +165,7 @@
     finalSessionId: document.querySelector("#finalSessionId"),
     finalSessionSummary: document.querySelector("#finalSessionSummary"),
     eligibleParticipant: document.querySelector("#eligibleParticipant"),
+    finalHistoricalContractNotice: document.querySelector("#finalHistoricalContractNotice"),
     finalProgram: document.querySelector("#finalProgram"),
     finalMaterialConfirmed: document.querySelector("#finalMaterialConfirmed"),
     closeFinalDialog: document.querySelector("#closeFinalDialog"),
@@ -198,6 +203,18 @@
     closeCancelDialog: document.querySelector("#closeCancelDialog"),
     keepRegistrationButton: document.querySelector("#keepRegistrationButton"),
     confirmCancelButton: document.querySelector("#confirmCancelButton"),
+
+    contractTerminationDialog: document.querySelector("#contractTerminationDialog"),
+    contractTerminationForm: document.querySelector("#contractTerminationForm"),
+    contractTerminationNotice: document.querySelector("#contractTerminationNotice"),
+    contractTerminationParticipantSummary: document.querySelector("#contractTerminationParticipantSummary"),
+    contractTerminationDate: document.querySelector("#contractTerminationDate"),
+    contractTerminationReason: document.querySelector("#contractTerminationReason"),
+    contractTerminationFutureFinal: document.querySelector("#contractTerminationFutureFinal"),
+    closeContractTerminationDialog: document.querySelector("#closeContractTerminationDialog"),
+    cancelContractTermination: document.querySelector("#cancelContractTermination"),
+    submitContractTermination: document.querySelector("#submitContractTermination"),
+
     documentTabCount: document.querySelector("#documentTabCount"),
     refreshDocumentsButton: document.querySelector("#refreshDocumentsButton"),
     documentsAutoRefreshStatus: document.querySelector("#documentsAutoRefreshStatus"),
@@ -253,6 +270,7 @@
   let activeEncryptionKey = null;
   let registrationToCancel = null;
   let registrationToChange = null;
+  let participantToTerminate = null;
   let municipalDocuments = [];
   let annexGenerationRequests = [];
   let annexDocumentDownloadRequests = [];
@@ -1185,6 +1203,393 @@
     return ({ pending: "Pendiente de incorporar al SAE", processing: "Procesando", synced: "Incorporada al SAE", error: "Requiere revisión" })[status] ?? status;
   }
 
+  /* v1.11 · Periodo contractual */
+
+  function participantHasKnownContract(participant) {
+    return Boolean(
+      participant?.contract_start_date
+      && participant?.contract_end_date
+    );
+  }
+
+  function participantFitsSessionContract(participant, session) {
+    if (!participant || !session?.session_date) return false;
+    if (participant.contract_termination_date) return false;
+
+    const start = String(participant.contract_start_date || "");
+    const end = String(participant.contract_end_date || "");
+
+    /* Histórico sin fechas conocidas: no bloqueamos. */
+    if (!start && !end) return true;
+
+    /* Estado incoherente: solo existe una de las fechas. */
+    if (!start || !end) return false;
+
+    const sessionDate = String(session.session_date);
+
+    return sessionDate >= start && sessionDate <= end;
+  }
+
+  function eligibleParticipantsForSession(session) {
+    return eligibleParticipants.filter(
+      (participant) =>
+        participantFitsSessionContract(participant, session)
+    );
+  }
+
+  function updateFinalContractNotice() {
+    if (!elements.finalHistoricalContractNotice) return;
+
+    const session = findSession(elements.finalSessionId.value);
+
+    const participant =
+      eligibleParticipantsForSession(session)
+        .find(
+          (item) =>
+            item.id === elements.eligibleParticipant.value
+        );
+
+    const historical =
+      participant
+      && !participant.contract_start_date
+      && !participant.contract_end_date;
+
+    elements.finalHistoricalContractNotice.hidden = !historical;
+
+    elements.finalHistoricalContractNotice.textContent =
+      historical
+        ? "Las sesiones grupales se impartirán durante el periodo de contratación de las personas participantes, con anterioridad a su finalización.\n\nDurante su participación en el programa la persona desempleada participante recibirá al menos dos sesiones de orientación, individuales o colectivas, desarrolladas de acuerdo con los Protocolos del Servicio Andaluz de Empleo."
+        : "";
+  }
+
+  function registrationFitsParticipantContract(registration) {
+    const participant = registration?.participant;
+    const session = registration?.session;
+
+    if (!participant || !session?.session_date) return false;
+
+    const start = String(participant.contract_start_date || "");
+    const end = String(participant.contract_end_date || "");
+
+    if (!start && !end) return true;
+    if (!start || !end) return false;
+
+    const sessionDate = String(session.session_date);
+
+    return sessionDate >= start && sessionDate <= end;
+  }
+
+  function dateDifferenceInDays(fromDate, toDate) {
+    const from = String(fromDate || "").split("-").map(Number);
+    const to = String(toDate || "").split("-").map(Number);
+
+    if (
+      from.length !== 3
+      || to.length !== 3
+      || from.some((value) => !Number.isFinite(value))
+      || to.some((value) => !Number.isFinite(value))
+    ) {
+      return null;
+    }
+
+    const fromUtc = Date.UTC(from[0], from[1] - 1, from[2]);
+    const toUtc = Date.UTC(to[0], to[1] - 1, to[2]);
+
+    return Math.round((toUtc - fromUtc) / 86400000);
+  }
+
+  function participantHasAttendedFinal(participantId) {
+    return registrations.some(
+      (item) =>
+        item.participant?.id === participantId
+        && item.phase === "final"
+        && item.status === "attended"
+    );
+  }
+
+  function finalRegistrationIsFuture(registration) {
+    if (
+      registration?.phase !== "final"
+      || !registration?.session?.session_date
+    ) return false;
+
+    const today = localToday();
+    const date = String(registration.session.session_date);
+
+    if (date > today) return true;
+    if (date < today) return false;
+
+    return !sessionHasStarted(registration.session);
+  }
+
+  function validFutureFinalRegistration(participantId) {
+    return registrations.find(
+      (item) =>
+        item.participant?.id === participantId
+        && item.phase === "final"
+        && ["pending", "confirmed", "incident"].includes(item.status)
+        && finalRegistrationIsFuture(item)
+        && registrationFitsParticipantContract(item)
+    ) ?? null;
+  }
+
+  function anyFutureFinalRegistration(participantId) {
+    return registrations.find(
+      (item) =>
+        item.participant?.id === participantId
+        && item.phase === "final"
+        && ["pending", "confirmed", "incident"].includes(item.status)
+        && finalRegistrationIsFuture(item)
+    ) ?? null;
+  }
+
+  function contractFinalPendingParticipants() {
+    const today = localToday();
+
+    const participants =
+      registrations
+        .filter(
+          (item) =>
+            item.phase === "initial"
+            && item.status === "attended"
+            && item.participant?.id
+        )
+        .map((item) => item.participant)
+        .filter(
+          (participant, index, all) =>
+            all.findIndex(
+              (other) => other?.id === participant?.id
+            ) === index
+        );
+
+    return participants.filter((participant) => {
+      if (
+        !participantHasKnownContract(participant)
+        || participant.contract_termination_date
+      ) return false;
+
+      if (participantHasAttendedFinal(participant.id)) return false;
+
+      const days =
+        dateDifferenceInDays(
+          today,
+          participant.contract_end_date
+        );
+
+      if (days === null || days < 1 || days > 30) return false;
+
+      /*
+       * Solo una final futura celebrada dentro del contrato
+       * elimina el aviso.
+       */
+      if (validFutureFinalRegistration(participant.id)) return false;
+
+      return true;
+    });
+  }
+
+  function participantTrackingContractPanel(group) {
+    const participant = group?.participant;
+    if (!participant?.id) return "";
+
+    let periodText =
+      "Periodo contractual no disponible para este participante histórico.";
+
+    if (
+      participant.contract_start_date
+      && participant.contract_end_date
+    ) {
+      periodText =
+        `Contrato: ${formatDate(participant.contract_start_date)} – ${formatDate(participant.contract_end_date)}`;
+    }
+
+    if (participant.contract_termination_date) {
+      return `
+        <div class="participant-contract-panel terminated">
+          <div>
+            <span class="participant-contract-label">Programa / contrato</span>
+            <strong>Baja registrada el ${escapeHtml(formatDate(participant.contract_termination_date))}</strong>
+            <small>${escapeHtml(participant.contract_termination_reason || "")}</small>
+          </div>
+        </div>
+      `;
+    }
+
+    if (participantHasAttendedFinal(participant.id)) {
+      return `
+        <div class="participant-contract-panel">
+          <div>
+            <span class="participant-contract-label">Periodo de contratación</span>
+            <strong>${escapeHtml(periodText)}</strong>
+          </div>
+          <span class="badge synced">Sesión final realizada</span>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="participant-contract-panel">
+        <div>
+          <span class="participant-contract-label">Periodo de contratación</span>
+          <strong>${escapeHtml(periodText)}</strong>
+        </div>
+        <button
+          class="button secondary small js-terminate-contract"
+          type="button"
+          data-participant-id="${escapeHtml(participant.id)}"
+        >Registrar baja del programa/contrato</button>
+      </div>
+    `;
+  }
+
+  function participantFromRegistrations(participantId) {
+    return registrations
+      .map((item) => item.participant)
+      .find(
+        (participant) => participant?.id === participantId
+      ) ?? null;
+  }
+
+  function openContractTerminationDialog(participantId) {
+    const participant =
+      participantFromRegistrations(participantId);
+
+    if (!participant || participant.contract_termination_date) return;
+
+    participantToTerminate = participant;
+
+    clearNotice(elements.contractTerminationNotice);
+
+    elements.contractTerminationParticipantSummary.textContent =
+      `${participant.display_name || "Participante"} · ${participant.masked_document || ""}`;
+
+    const today = localToday();
+
+    let maximumDate = today;
+
+    if (
+      participant.contract_end_date
+      && participant.contract_end_date < maximumDate
+    ) {
+      maximumDate = participant.contract_end_date;
+    }
+
+    elements.contractTerminationDate.min =
+      participant.contract_start_date || "";
+
+    elements.contractTerminationDate.max = maximumDate;
+    elements.contractTerminationDate.value = maximumDate;
+    elements.contractTerminationReason.value = "";
+
+    const futureFinal =
+      anyFutureFinalRegistration(participant.id);
+
+    if (futureFinal) {
+      elements.contractTerminationFutureFinal.hidden = false;
+      elements.contractTerminationFutureFinal.textContent =
+        `Esta persona está inscrita en la sesión final “${futureFinal.session?.title || "Sesión final"}” del ${formatDate(futureFinal.session?.session_date)}. Al registrar la baja, esa inscripción se cancelará automáticamente y la plaza quedará libre.`;
+
+      elements.submitContractTermination.textContent =
+        "Registrar baja y cancelar sesión final";
+    } else {
+      elements.contractTerminationFutureFinal.hidden = true;
+      elements.contractTerminationFutureFinal.textContent = "";
+      elements.submitContractTermination.textContent =
+        "Registrar baja";
+    }
+
+    elements.contractTerminationDialog.showModal();
+  }
+
+  function closeContractTerminationDialog() {
+    participantToTerminate = null;
+
+    if (elements.contractTerminationDialog?.open) {
+      elements.contractTerminationDialog.close();
+    }
+  }
+
+  async function handleContractTermination(event) {
+    event.preventDefault();
+
+    clearNotice(elements.contractTerminationNotice);
+
+    if (!participantToTerminate) {
+      showNotice(
+        "error",
+        "No se ha localizado la persona participante.",
+        elements.contractTerminationNotice
+      );
+      return;
+    }
+
+    const terminationDate =
+      elements.contractTerminationDate.value;
+
+    const reason =
+      String(elements.contractTerminationReason.value || "").trim();
+
+    if (!terminationDate) {
+      showNotice(
+        "warning",
+        "Indica la fecha de baja.",
+        elements.contractTerminationNotice
+      );
+      return;
+    }
+
+    if (reason.length < 2) {
+      showNotice(
+        "warning",
+        "Indica el motivo de la baja.",
+        elements.contractTerminationNotice
+      );
+      return;
+    }
+
+    const participantId = participantToTerminate.id;
+
+    elements.submitContractTermination.disabled = true;
+    elements.submitContractTermination.textContent = "Registrando…";
+
+    try {
+      const { data, error } =
+        await municipalRpc(
+          "terminate_participant_contract",
+          {
+            p_participant_id: participantId,
+            p_termination_date: terminationDate,
+            p_reason: reason,
+          }
+        );
+
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("No se pudo registrar la baja.");
+
+      closeContractTerminationDialog();
+
+      await loadRegistrations();
+      await loadSessions();
+
+      renderParticipantTracking();
+      updatePendingManagementSummary();
+
+      showPortalToast(
+        "✓ Baja del programa/contrato registrada."
+      );
+    } catch (error) {
+      showNotice(
+        "error",
+        error.message || "No se pudo registrar la baja.",
+        elements.contractTerminationNotice
+      );
+    } finally {
+      elements.submitContractTermination.disabled = false;
+      elements.submitContractTermination.textContent = "Registrar baja";
+    }
+  }
+
+
   function sessionCard(session) {
     const isInitial = session.session_type === "initial";
     const phaseLabel = isInitial ? "Inicial" : "Final";
@@ -1198,13 +1603,18 @@
       && !registrationStarted
       && !isFull;
 
+    const eligibleForFinal =
+      isInitial
+        ? []
+        : eligibleParticipantsForSession(session);
+
     const canRegisterInitial =
       isInitial && registrationAvailable;
 
     const canRegisterFinal =
       !isInitial
       && registrationAvailable
-      && eligibleParticipants.length > 0;
+      && eligibleForFinal.length > 0;
 
     let actionLabel = registrationStarted
       ? "Sesión iniciada"
@@ -1221,7 +1631,7 @@
     } else if (canRegisterFinal) {
       actionLabel = "Inscribir";
       actionClass = "js-register-final";
-    } else if (!isFull && !isInitial && session.registration_open && eligibleParticipants.length === 0) {
+    } else if (!isFull && !isInitial && session.registration_open && eligibleForFinal.length === 0) {
       actionLabel = "Sin personas disponibles";
       registrationNote = "La inscripción final se habilita para las personas cuya sesión inicial conste como realizada.";
     } else if (isFull) {
@@ -1953,6 +2363,8 @@
               </strong>
             </header>
 
+            ${participantTrackingContractPanel(group)}
+
             <div class="participant-tracking-history">
               ${group.registrations
                 .map(participantTrackingSessionItem)
@@ -2259,6 +2671,9 @@
   function pendingManagementSummary() {
     const incidents = incidentItems();
 
+    const contractFinal =
+      contractFinalPendingParticipants().length;
+
     const annexIncidentSessionIds = new Set(
       incidents
         .filter((item) => item.group === "annex" && item.sessionId)
@@ -2322,11 +2737,13 @@
       annexCreate,
       annexUpload,
       annexDownload,
+      contractFinal,
       incidents: incidents.length,
       total:
         annexCreate
         + annexUpload
         + annexDownload
+        + contractFinal
         + incidents.length,
     };
   }
@@ -2360,6 +2777,11 @@
     elements.pendingIncidentCount.textContent =
       String(summary.incidents);
 
+    if (elements.pendingContractFinalCount) {
+      elements.pendingContractFinalCount.textContent =
+        String(summary.contractFinal);
+    }
+
     elements.pendingAnnexCreate.hidden =
       summary.annexCreate === 0;
 
@@ -2371,6 +2793,11 @@
 
     elements.pendingIncidents.hidden =
       summary.incidents === 0;
+
+    if (elements.pendingContractFinal) {
+      elements.pendingContractFinal.hidden =
+        summary.contractFinal === 0;
+    }
 
     elements.pendingManagementGrid.hidden =
       summary.total === 0;
@@ -3421,7 +3848,18 @@
         .select(`
           id, phase, status, sync_status, incident_message, absence_reason, created_at, program_id, program_name_snapshot,
           transferred_from_registration_id, transferred_to_session_id, transferred_at,
-          participant:participants (id, display_name, masked_document, progress_status, sync_status, incident_message),
+          participant:participants (
+            id,
+            display_name,
+            masked_document,
+            progress_status,
+            sync_status,
+            incident_message,
+            contract_start_date,
+            contract_end_date,
+            contract_termination_date,
+            contract_termination_reason
+          ),
           session:sessions!session_id
             (id, title, session_type, session_date, start_time, end_time, trainer, status),
           transferred_to_session:sessions!transferred_to_session_id
@@ -3446,6 +3884,7 @@
           item.phase === "initial"
           && item.status === "attended"
           && item.participant?.id
+          && !item.participant.contract_termination_date
           && !activeFinalParticipantIds.has(item.participant.id)
         )
         .map((item) => ({
@@ -3460,6 +3899,7 @@
       renderIncidents();
       renderRegistrations();
       renderParticipantTracking();
+      updatePendingManagementSummary();
     } finally {
       if (!silent) {
         elements.registrationsLoading.hidden = true;
@@ -3689,6 +4129,16 @@
       return;
     }
     elements.initialSessionId.value = session.id;
+
+    elements.contractStartDate.value = "";
+    elements.contractEndDate.value = "";
+
+    elements.contractStartDate.max =
+      session.session_date || "";
+
+    elements.contractEndDate.min =
+      session.session_date || "";
+
     elements.initialSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
     elements.initialProgram.innerHTML = programOptions(session);
     elements.initialProgramHelp.textContent = availablePrograms.length === 1 ? "Programa seleccionado automáticamente." : "Hay varios programas activos para esta fecha; selecciona el correspondiente.";
@@ -3725,9 +4175,27 @@
     }
     elements.finalSessionId.value = session.id;
     elements.finalSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
-    elements.eligibleParticipant.innerHTML = eligibleParticipants.map((participant) => `<option value="${participant.id}">${escapeHtml(participant.display_name)} · ${escapeHtml(participant.masked_document)}</option>`).join("");
-    const selectedParticipant = eligibleParticipants[0];
-    elements.finalProgram.innerHTML = programOptions(session, selectedParticipant?.previous_program_id || "");
+    const availableParticipants =
+      eligibleParticipantsForSession(session);
+
+    elements.eligibleParticipant.innerHTML =
+      availableParticipants
+        .map(
+          (participant) =>
+            `<option value="${participant.id}">${escapeHtml(participant.display_name)} · ${escapeHtml(participant.masked_document)}</option>`
+        )
+        .join("");
+
+    const selectedParticipant = availableParticipants[0];
+
+    elements.finalProgram.innerHTML =
+      programOptions(
+        session,
+        selectedParticipant?.previous_program_id || ""
+      );
+
+    updateFinalContractNotice();
+
     elements.finalDialog.showModal();
   }
 
@@ -4298,6 +4766,12 @@
     const sessionId = elements.initialSessionId.value;
     const programId = elements.initialProgram.value;
 
+    const contractStartDate =
+      elements.contractStartDate.value;
+
+    const contractEndDate =
+      elements.contractEndDate.value;
+
     const selectedSession = sessions.find(
       (session) => String(session.id) === String(sessionId),
     );
@@ -4309,6 +4783,36 @@
         elements.registrationNotice,
       );
       renderSessions();
+      return;
+    }
+
+    if (!contractStartDate || !contractEndDate) {
+      showNotice(
+        "warning",
+        "Debes indicar la fecha de inicio y la fecha de fin del contrato.",
+        elements.registrationNotice
+      );
+      return;
+    }
+
+    if (contractStartDate > contractEndDate) {
+      showNotice(
+        "warning",
+        "La fecha de inicio del contrato no puede ser posterior a la fecha de fin.",
+        elements.registrationNotice
+      );
+      return;
+    }
+
+    if (
+      selectedSession.session_date < contractStartDate
+      || selectedSession.session_date > contractEndDate
+    ) {
+      showNotice(
+        "warning",
+        "La sesión inicial debe celebrarse durante el periodo de contratación de la persona participante.",
+        elements.registrationNotice
+      );
       return;
     }
 
@@ -4356,7 +4860,7 @@
       const encrypted = await encryptIdentity(identity, context, activeEncryptionKey.public_key_pem);
       elements.submitInitialRegistration.textContent = "Registrando…";
 
-      const { data, error } = await municipalRpc("register_initial", {
+      const { data, error } = await municipalRpc("register_initial_with_contract", {
         p_session_id: sessionId,
         p_program_id: programId,
         p_display_name: displayName(firstName, firstSurname, secondSurname),
@@ -4365,6 +4869,8 @@
         p_encrypted_key: encrypted.encryptedKey,
         p_iv: encrypted.iv,
         p_ciphertext: encrypted.ciphertext,
+        p_contract_start_date: contractStartDate,
+        p_contract_end_date: contractEndDate,
         p_payload_version: 1
       });
       if (error) throw new Error(error.message);
@@ -4506,6 +5012,23 @@
       showNotice("warning", "Selecciona una persona disponible.", elements.finalRegistrationNotice);
       return;
     }
+
+    const selectedParticipant =
+      eligibleParticipantsForSession(selectedSession)
+        .find(
+          (participant) =>
+            participant.id === participantId
+        );
+
+    if (!selectedParticipant) {
+      showNotice(
+        "warning",
+        "La persona seleccionada no está disponible para esta fecha de sesión final.",
+        elements.finalRegistrationNotice
+      );
+      renderSessions();
+      return;
+    }
     if (!programId) {
       showNotice("warning", "Selecciona el programa en el que participa.", elements.finalRegistrationNotice);
       return;
@@ -4578,6 +5101,19 @@
       if (sessionHasStarted(session)) return false;
       if (session.session_type !== registration.phase) return false;
       if (session.id === currentSessionId) return false;
+
+      /*
+       * Una inscripción solo puede trasladarse a una sesión
+       * incluida dentro del periodo contractual.
+       *
+       * Los históricos sin fechas siguen permitidos.
+       */
+      if (
+        !participantFitsSessionContract(
+          registration.participant,
+          session
+        )
+      ) return false;
 
       const alreadyUsed = registrations.some((item) =>
         item.participant?.id === participantId
@@ -5974,6 +6510,20 @@
       if (changeButton && !changeButton.disabled) openChangeSessionDialog(changeButton.dataset.registrationId);
       if (cancelButton && !cancelButton.disabled) openCancelDialog(cancelButton.dataset.registrationId);
     });
+    elements.participantTrackingList?.addEventListener(
+      "click",
+      (event) => {
+        const button =
+          event.target.closest(".js-terminate-contract");
+
+        if (button && !button.disabled) {
+          openContractTerminationDialog(
+            button.dataset.participantId
+          );
+        }
+      }
+    );
+
     elements.documentsList.addEventListener("click", (event) => {
       const uploadButton = event.target.closest(".js-upload-document");
       const generateButton = event.target.closest(".js-generate-annex");
@@ -5988,14 +6538,35 @@
     });
     [elements.firstName, elements.firstSurname, elements.secondSurname, elements.documentNumber].forEach((input) => input.addEventListener("input", updateSafePreview));
     elements.documentType.addEventListener("change", updateSafePreview);
+    elements.pendingContractFinal?.addEventListener(
+      "click",
+      () => {
+        setActiveSection("sessionsSection");
+      }
+    );
+
     elements.initialForm.addEventListener("submit", handleInitialRegistration);
     elements.closeInitialDialog.addEventListener("click", closeInitialDialog);
     elements.cancelInitialRegistration.addEventListener("click", closeInitialDialog);
     elements.finalForm.addEventListener("submit", handleFinalRegistration);
     elements.eligibleParticipant.addEventListener("change", () => {
-      const participant = eligibleParticipants.find((item) => item.id === elements.eligibleParticipant.value);
-      const session = findSession(elements.finalSessionId.value);
-      elements.finalProgram.innerHTML = programOptions(session, participant?.previous_program_id || "");
+      const session =
+        findSession(elements.finalSessionId.value);
+
+      const participant =
+        eligibleParticipantsForSession(session)
+          .find(
+            (item) =>
+              item.id === elements.eligibleParticipant.value
+          );
+
+      elements.finalProgram.innerHTML =
+        programOptions(
+          session,
+          participant?.previous_program_id || ""
+        );
+
+      updateFinalContractNotice();
     });
     elements.closeFinalDialog.addEventListener("click", closeFinalDialog);
     elements.cancelFinalRegistration.addEventListener("click", closeFinalDialog);
@@ -6033,6 +6604,22 @@
     elements.closeCancelDialog.addEventListener("click", closeCancelDialog);
     elements.keepRegistrationButton.addEventListener("click", closeCancelDialog);
     elements.confirmCancelButton.addEventListener("click", confirmCancellation);
+
+    elements.contractTerminationForm?.addEventListener(
+      "submit",
+      handleContractTermination
+    );
+
+    elements.closeContractTerminationDialog?.addEventListener(
+      "click",
+      closeContractTerminationDialog
+    );
+
+    elements.cancelContractTermination?.addEventListener(
+      "click",
+      closeContractTerminationDialog
+    );
+
     elements.documentUploadForm.addEventListener("submit", handleDocumentUpload);
     elements.closeDocumentUploadDialog.addEventListener("click", closeDocumentUploadDialog);
     elements.cancelDocumentUpload.addEventListener("click", closeDocumentUploadDialog);

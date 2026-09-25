@@ -2829,3 +2829,75 @@ select:focus {
     width: 100%;
   }
 }
+
+
+/* ==========================================================
+   v1.11 · Periodo contractual de participantes
+   ========================================================== */
+
+.contract-info-notice {
+  margin: .85rem 0;
+  padding: .9rem 1rem;
+  border: 1px solid #bfd8cb;
+  border-left: 4px solid #24724f;
+  border-radius: 10px;
+  background: #f2f8f5;
+  font-size: .9rem;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.participant-contract-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1.15rem;
+  border-bottom: 1px solid rgba(0, 0, 0, .07);
+  background: #f7faf8;
+}
+
+.participant-contract-panel > div {
+  display: grid;
+  gap: .18rem;
+  min-width: 0;
+}
+
+.participant-contract-panel small {
+  line-height: 1.4;
+}
+
+.participant-contract-panel.terminated {
+  border-left: 4px solid #b43a32;
+  background: #fff6f4;
+}
+
+.participant-contract-label {
+  font-size: .73rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity: .7;
+}
+
+.contract-termination-warning {
+  padding: .9rem 1rem;
+  border: 1px solid #ead19a;
+  border-left: 4px solid #d79a00;
+  border-radius: 10px;
+  background: #fff9ea;
+  line-height: 1.5;
+}
+
+#contractTerminationReason {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+}
+
+@media (max-width: 760px) {
+  .participant-contract-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

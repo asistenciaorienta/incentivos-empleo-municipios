@@ -318,6 +318,31 @@
             </button>
 
             <button
+              id="pendingContractFinal"
+              class="pending-management-item pending-management-warning"
+              type="button"
+              hidden
+            >
+              <span class="pending-management-label">
+                Sesión final
+              </span>
+
+              <strong>
+                <span id="pendingContractFinalCount">0</span>
+                contratos próximos a finalizar
+              </strong>
+
+              <small>
+                Quedan entre 1 y 30 días para finalizar el contrato
+                y todavía falta una sesión final válida.
+              </small>
+
+              <span class="pending-management-action">
+                Ir a sesiones ›
+              </span>
+            </button>
+
+            <button
               id="pendingIncidents"
               class="pending-management-item pending-management-danger js-dashboard-action"
               type="button"
@@ -886,7 +911,25 @@
           <span>DNI/NIE</span>
           <input id="documentNumber" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" required placeholder="12345678Z">
         </label>
-        <label class="span-2">
+          <label>
+            <span>Fecha de inicio del contrato</span>
+            <input
+              id="contractStartDate"
+              type="date"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Fecha de fin del contrato</span>
+            <input
+              id="contractEndDate"
+              type="date"
+              required
+            >
+          </label>
+
+<label class="span-2">
           <span>Programa en el que participa</span>
           <select id="initialProgram" required></select>
           <small id="initialProgramHelp" class="field-help"></small>
@@ -940,7 +983,14 @@
         <span>Persona que ha completado la sesión inicial</span>
         <select id="eligibleParticipant" required></select>
       </label>
-      <label>
+        <div
+          id="finalHistoricalContractNotice"
+          class="contract-info-notice"
+          role="status"
+          hidden
+        ></div>
+
+<label>
         <span>Programa en el que participa</span>
         <select id="finalProgram" required></select>
         <small class="field-help">Se propone el programa de la sesión inicial, pero puede modificarse.</small>
@@ -970,7 +1020,101 @@
   </dialog>
 
 
-  <dialog id="registrationSuccessDialog" class="modal-dialog compact-dialog" aria-labelledby="registrationSuccessTitle">
+    <dialog
+      id="contractTerminationDialog"
+      class="modal-dialog compact-dialog"
+      aria-labelledby="contractTerminationTitle"
+    >
+      <form
+        id="contractTerminationForm"
+        class="modal-card"
+        method="dialog"
+        novalidate
+      >
+        <div
+          id="contractTerminationNotice"
+          class="notice"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></div>
+
+        <div class="modal-heading">
+          <div>
+            <p class="section-kicker">
+              Seguimiento de participante
+            </p>
+
+            <h2 id="contractTerminationTitle">
+              Registrar baja del programa/contrato
+            </h2>
+
+            <p
+              id="contractTerminationParticipantSummary"
+              class="muted"
+            >—</p>
+          </div>
+
+          <button
+            id="closeContractTerminationDialog"
+            class="icon-button"
+            type="button"
+            aria-label="Cerrar"
+          >×</button>
+        </div>
+
+        <div
+          id="contractTerminationFutureFinal"
+          class="contract-termination-warning"
+          role="status"
+          hidden
+        ></div>
+
+        <label>
+          <span>Fecha de baja</span>
+          <input
+            id="contractTerminationDate"
+            type="date"
+            required
+          >
+        </label>
+
+        <label>
+          <span>Motivo de la baja</span>
+          <textarea
+            id="contractTerminationReason"
+            rows="4"
+            maxlength="180"
+            required
+          ></textarea>
+
+          <small class="field-help">
+            Máximo 180 caracteres.
+          </small>
+        </label>
+
+        <div class="modal-actions">
+          <button
+            id="cancelContractTermination"
+            class="button secondary"
+            type="button"
+          >
+            Cancelar
+          </button>
+
+          <button
+            id="submitContractTermination"
+            class="button primary"
+            type="submit"
+          >
+            Registrar baja
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+
+    <dialog id="registrationSuccessDialog" class="modal-dialog compact-dialog" aria-labelledby="registrationSuccessTitle">
     <div class="modal-card">
       <div class="modal-heading">
         <div>
