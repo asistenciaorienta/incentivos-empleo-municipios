@@ -319,7 +319,7 @@
 
             <button
               id="pendingContractFinal"
-              class="pending-management-item pending-management-warning"
+              class="pending-management-item pending-management-contract"
               type="button"
               hidden
             >
@@ -1069,6 +1069,96 @@
 
 
     <dialog
+      id="contractEditDialog"
+      class="modal-dialog compact-dialog"
+      aria-labelledby="contractEditTitle"
+    >
+      <form
+        id="contractEditForm"
+        class="modal-card"
+        method="dialog"
+        novalidate
+      >
+        <div
+          id="contractEditNotice"
+          class="notice"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></div>
+
+        <div class="modal-heading">
+          <div>
+            <p class="section-kicker">
+              Seguimiento de participante
+            </p>
+
+            <h2 id="contractEditTitle">
+              Editar fechas de contrato
+            </h2>
+
+            <p
+              id="contractEditParticipantSummary"
+              class="muted"
+            >—</p>
+          </div>
+
+          <button
+            id="closeContractEditDialog"
+            class="icon-button"
+            type="button"
+            aria-label="Cerrar"
+          >×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            <span>Fecha de inicio del contrato</span>
+            <input
+              id="contractEditStartDate"
+              type="date"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Fecha de fin del contrato</span>
+            <input
+              id="contractEditEndDate"
+              type="date"
+              required
+            >
+          </label>
+        </div>
+
+        <p class="contract-edit-help">
+          La corrección solo podrá guardarse si las sesiones activas
+          o realizadas de esta persona continúan dentro del periodo
+          de contratación.
+        </p>
+
+        <div class="modal-actions">
+          <button
+            id="cancelContractEdit"
+            class="button secondary"
+            type="button"
+          >
+            Cancelar
+          </button>
+
+          <button
+            id="submitContractEdit"
+            class="button primary"
+            type="submit"
+          >
+            Guardar fechas
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+
+    <dialog
       id="contractTerminationDialog"
       class="modal-dialog compact-dialog"
       aria-labelledby="contractTerminationTitle"
@@ -1279,6 +1369,10 @@
             type="button"
           >Copiar enlace</button>
         </div>
+
+        <p class="session-connection-reminder">
+          Se recuerda que la conexión debe ser <strong>INDIVIDUAL</strong> y debe constar: Nombre y apellidos + Ayuntamiento.
+        </p>
       </div>
 
       <p id="registrationSuccessNoLink" class="muted" hidden>

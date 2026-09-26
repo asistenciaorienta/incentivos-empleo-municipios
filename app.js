@@ -220,6 +220,16 @@
     cancelContractTermination: document.querySelector("#cancelContractTermination"),
     submitContractTermination: document.querySelector("#submitContractTermination"),
 
+    contractEditDialog: document.querySelector("#contractEditDialog"),
+    contractEditForm: document.querySelector("#contractEditForm"),
+    contractEditNotice: document.querySelector("#contractEditNotice"),
+    contractEditParticipantSummary: document.querySelector("#contractEditParticipantSummary"),
+    contractEditStartDate: document.querySelector("#contractEditStartDate"),
+    contractEditEndDate: document.querySelector("#contractEditEndDate"),
+    closeContractEditDialog: document.querySelector("#closeContractEditDialog"),
+    cancelContractEdit: document.querySelector("#cancelContractEdit"),
+    submitContractEdit: document.querySelector("#submitContractEdit"),
+
     documentTabCount: document.querySelector("#documentTabCount"),
     refreshDocumentsButton: document.querySelector("#refreshDocumentsButton"),
     documentsAutoRefreshStatus: document.querySelector("#documentsAutoRefreshStatus"),
@@ -276,6 +286,7 @@
   let registrationToCancel = null;
   let registrationToChange = null;
   let participantToTerminate = null;
+  let participantToEditContract = null;
   let municipalDocuments = [];
   let annexGenerationRequests = [];
   let annexDocumentDownloadRequests = [];
@@ -1645,16 +1656,26 @@
     const participant = group?.participant;
     if (!participant?.id) return "";
 
+    const hasKnownContract =
+      participantHasKnownContract(participant);
+
     let periodText =
       "Periodo contractual no disponible para este participante histórico.";
 
-    if (
-      participant.contract_start_date
-      && participant.contract_end_date
-    ) {
+    if (hasKnownContract) {
       periodText =
         `Contrato: ${formatDate(participant.contract_start_date)} – ${formatDate(participant.contract_end_date)}`;
     }
+
+    const editButton = hasKnownContract
+      ? `
+        <button
+          class="button secondary small js-edit-contract-dates"
+          type="button"
+          data-participant-id="${escapeHtml(participant.id)}"
+        >Editar fechas</button>
+      `
+      : "";
 
     if (participant.contract_termination_date) {
       return `
@@ -1663,7 +1684,14 @@
             <span class="participant-contract-label">Programa / contrato</span>
             <strong>Baja registrada el ${escapeHtml(formatDate(participant.contract_termination_date))}</strong>
             <small>${escapeHtml(participant.contract_termination_reason || "")}</small>
+            ${hasKnownContract
+              ? `<small>${escapeHtml(periodText)}</small>`
+              : ""}
           </div>
+
+          ${editButton
+            ? `<div class="participant-contract-actions">${editButton}</div>`
+            : ""}
         </div>
       `;
     }
@@ -1675,7 +1703,11 @@
             <span class="participant-contract-label">Periodo de contratación</span>
             <strong>${escapeHtml(periodText)}</strong>
           </div>
-          <span class="badge synced">Sesión final realizada</span>
+
+          <div class="participant-contract-actions">
+            <span class="badge synced">Sesión final realizada</span>
+            ${editButton}
+          </div>
         </div>
       `;
     }
@@ -1686,14 +1718,20 @@
           <span class="participant-contract-label">Periodo de contratación</span>
           <strong>${escapeHtml(periodText)}</strong>
         </div>
-        <button
-          class="button secondary small js-terminate-contract"
-          type="button"
-          data-participant-id="${escapeHtml(participant.id)}"
-        >Registrar baja del programa/contrato</button>
+
+        <div class="participant-contract-actions">
+          ${editButton}
+
+          <button
+            class="button secondary small js-terminate-contract"
+            type="button"
+            data-participant-id="${escapeHtml(participant.id)}"
+          >Registrar baja del programa/contrato</button>
+        </div>
       </div>
     `;
   }
+
 
   function participantFromRegistrations(participantId) {
     return registrations
@@ -1702,6 +1740,133 @@
         (participant) => participant?.id === participantId
       ) ?? null;
   }
+
+  function openContractEditDialog(participantId) {
+    const participant =
+      participantFromRegistrations(participantId);
+
+    if (
+      !participant
+      || !participantHasKnownContract(participant)
+    ) {
+      return;
+    }
+
+    participantToEditContract = participant;
+
+    clearNotice(elements.contractEditNotice);
+
+    elements.contractEditParticipantSummary.textContent =
+      `${participant.display_name || "Participante"} · ${participant.masked_document || ""}`;
+
+    elements.contractEditStartDate.value =
+      participant.contract_start_date || "";
+
+    elements.contractEditEndDate.value =
+      participant.contract_end_date || "";
+
+    elements.contractEditDialog.showModal();
+  }
+
+
+  function closeContractEditDialog() {
+    participantToEditContract = null;
+
+    if (elements.contractEditDialog?.open) {
+      elements.contractEditDialog.close();
+    }
+  }
+
+
+  async function handleContractEdit(event) {
+    event.preventDefault();
+
+    clearNotice(elements.contractEditNotice);
+
+    if (!participantToEditContract) {
+      showNotice(
+        "error",
+        "No se ha localizado la persona participante.",
+        elements.contractEditNotice
+      );
+      return;
+    }
+
+    const startDate =
+      String(elements.contractEditStartDate.value || "").trim();
+
+    const endDate =
+      String(elements.contractEditEndDate.value || "").trim();
+
+    if (!startDate || !endDate) {
+      showNotice(
+        "error",
+        "Debes indicar la fecha de inicio y la fecha de fin del contrato.",
+        elements.contractEditNotice
+      );
+      return;
+    }
+
+    if (startDate > endDate) {
+      showNotice(
+        "error",
+        "La fecha de inicio del contrato no puede ser posterior a la fecha de fin.",
+        elements.contractEditNotice
+      );
+      return;
+    }
+
+    const participantId =
+      participantToEditContract.id;
+
+    elements.submitContractEdit.disabled = true;
+    elements.submitContractEdit.textContent = "Guardando…";
+
+    try {
+      const { data, error } =
+        await municipalRpc(
+          "update_participant_contract_dates",
+          {
+            p_participant_id: participantId,
+            p_contract_start_date: startDate,
+            p_contract_end_date: endDate,
+          }
+        );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data !== true) {
+        throw new Error(
+          "No se pudo confirmar la actualización del periodo de contratación."
+        );
+      }
+
+      closeContractEditDialog();
+
+      await loadRegistrations();
+      await loadSessions();
+
+      renderParticipantTracking();
+      updatePendingManagementSummary();
+
+      showPortalToast(
+        "✓ Fechas de contrato actualizadas."
+      );
+    } catch (error) {
+      showNotice(
+        "error",
+        error.message
+          || "No se pudieron actualizar las fechas del contrato.",
+        elements.contractEditNotice
+      );
+    } finally {
+      elements.submitContractEdit.disabled = false;
+      elements.submitContractEdit.textContent = "Guardar fechas";
+    }
+  }
+
 
   function openContractTerminationDialog(participantId) {
     const participant =
@@ -1936,6 +2101,10 @@
             <a href="${escapeHtml(meetingUrl)}" target="_blank" rel="noreferrer">${escapeHtml(meetingUrl)}</a>
             <button class="button secondary small js-copy-link" type="button" data-link="${escapeHtml(meetingUrl)}">Copiar</button>
           </div>
+
+          <p class="session-connection-reminder">
+            Se recuerda que la conexión debe ser <strong>INDIVIDUAL</strong> y debe constar: Nombre y apellidos + Ayuntamiento.
+          </p>
         </div>
         <div class="session-participants-panel" data-session-participants-panel="${session.id}" hidden>
           <div class="session-panel-heading session-participants-heading">
@@ -6820,12 +6989,25 @@
     elements.participantTrackingList?.addEventListener(
       "click",
       (event) => {
-        const button =
+        const editButton =
+          event.target.closest(".js-edit-contract-dates");
+
+        const terminationButton =
           event.target.closest(".js-terminate-contract");
 
-        if (button && !button.disabled) {
+        if (editButton && !editButton.disabled) {
+          openContractEditDialog(
+            editButton.dataset.participantId
+          );
+          return;
+        }
+
+        if (
+          terminationButton
+          && !terminationButton.disabled
+        ) {
           openContractTerminationDialog(
-            button.dataset.participantId
+            terminationButton.dataset.participantId
           );
         }
       }
@@ -6957,6 +7139,21 @@
     elements.closeCancelDialog.addEventListener("click", closeCancelDialog);
     elements.keepRegistrationButton.addEventListener("click", closeCancelDialog);
     elements.confirmCancelButton.addEventListener("click", confirmCancellation);
+
+    elements.contractEditForm?.addEventListener(
+      "submit",
+      handleContractEdit
+    );
+
+    elements.closeContractEditDialog?.addEventListener(
+      "click",
+      closeContractEditDialog
+    );
+
+    elements.cancelContractEdit?.addEventListener(
+      "click",
+      closeContractEditDialog
+    );
 
     elements.contractTerminationForm?.addEventListener(
       "submit",
