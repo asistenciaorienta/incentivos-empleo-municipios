@@ -191,7 +191,54 @@
     <div id="appNotice" class="notice" role="status" aria-live="polite" hidden></div>
     <div id="portalToast" class="portal-toast" role="status" aria-live="polite" hidden></div>
 
-    <section id="loginView" class="auth-layout" aria-labelledby="loginTitle">
+    <section
+      id="closedView"
+      class="auth-layout"
+      aria-labelledby="closedViewTitle"
+      hidden
+    >
+      <article class="card auth-card">
+        <div class="card-heading">
+          <p class="section-kicker">Horario de acceso</p>
+          <h2 id="closedViewTitle">Portal municipal cerrado</h2>
+          <p>
+            El portal está disponible de lunes a viernes,
+            de 06:00 a 20:00 h.
+          </p>
+        </div>
+
+        <div class="notice warning">
+          Fuera de este horario no se pueden realizar gestiones
+          en el Portal municipal de Incentivos al empleo.
+        </div>
+
+        <p class="support-note">
+          El acceso se habilitará automáticamente cuando vuelva
+          a comenzar el horario de funcionamiento.
+        </p>
+      </article>
+
+      <aside
+        class="card information-card"
+        aria-label="Horario del portal"
+      >
+        <p class="section-kicker">Servicio Andaluz de Empleo</p>
+        <h2>Horario del portal</h2>
+
+        <ul class="feature-list">
+          <li>Lunes a viernes.</li>
+          <li>De 06:00 a 20:00 h.</li>
+          <li>Hora peninsular.</li>
+        </ul>
+
+        <p class="muted">
+          Sábados, domingos y fuera de esta franja horaria
+          el portal permanece cerrado.
+        </p>
+      </aside>
+    </section>
+
+    <section id="loginView" class="auth-layout" aria-labelledby="loginTitle" hidden>
       <article class="card auth-card">
         <div class="card-heading">
           <p class="section-kicker">Acceso identificado</p>
@@ -1564,6 +1611,6 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="./avisos.js?v=20260813-v1-9-7"></script>
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260914-support-v1"></script>
+  <script src="./app.js?v=20260928-business-hours-v1"></script>
 </body>
 </html>

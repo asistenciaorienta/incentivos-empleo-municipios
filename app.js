@@ -45,6 +45,7 @@
     closeMunicipalNoticesDialog: document.querySelector("#closeMunicipalNoticesDialog"),
     acceptMunicipalNotices: document.querySelector("#acceptMunicipalNotices"),
     loginView: document.querySelector("#loginView"),
+    closedView: document.querySelector("#closedView"),
     portalView: document.querySelector("#portalView"),
     loginForm: document.querySelector("#loginForm"),
     loginButton: document.querySelector("#loginButton"),
@@ -299,6 +300,8 @@
   let documentAutoRefreshBusy = false;
   let portalToastTimer = null;
   let pendingAnnexGeneration = null;
+  let municipalBusinessHoursTimer = null;
+  let lastMunicipalBusinessHoursOpen = null;
 
   function showNotice(type, message, target = elements.notice) {
     target.className = `notice ${type}`;
@@ -866,8 +869,72 @@
   }
 
   function setPortalVisible(visible) {
+    if (elements.closedView) {
+      elements.closedView.hidden = true;
+    }
+
     elements.loginView.hidden = visible;
     elements.portalView.hidden = !visible;
+  }
+
+  function setPortalClosedVisible(visible) {
+    if (!elements.closedView) return;
+
+    elements.closedView.hidden = !visible;
+
+    if (visible) {
+      elements.loginView.hidden = true;
+      elements.portalView.hidden = true;
+    }
+  }
+
+  function enforceMunicipalBusinessHoursUi() {
+    const open = municipalPortalIsOpen();
+
+    if (!open) {
+      if (lastMunicipalBusinessHoursOpen !== false) {
+        stopDocumentAutoRefresh();
+
+        document
+          .querySelectorAll("dialog[open]")
+          .forEach((dialog) => {
+            try {
+              dialog.close();
+            } catch (_) {
+              // El cierre visual no debe interrumpir el control horario.
+            }
+          });
+
+        try {
+          client?.auth?.stopAutoRefresh?.();
+        } catch (_) {
+          // La protección real del horario está también en Supabase.
+        }
+      }
+
+      setPortalClosedVisible(true);
+    } else if (lastMunicipalBusinessHoursOpen === false) {
+      // Si la página permaneció abierta durante el cierre,
+      // reiniciamos el flujo normal al comenzar el siguiente horario.
+      window.location.reload();
+      return true;
+    }
+
+    lastMunicipalBusinessHoursOpen = open;
+    return open;
+  }
+
+  function startMunicipalBusinessHoursGuard() {
+    const open = enforceMunicipalBusinessHoursUi();
+
+    if (municipalBusinessHoursTimer === null) {
+      municipalBusinessHoursTimer = window.setInterval(
+        enforceMunicipalBusinessHoursUi,
+        5_000,
+      );
+    }
+
+    return open;
   }
 
   function setActiveSection(sectionId) {
@@ -2238,9 +2305,10 @@
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
   }
 
-  function madridNowParts() {
+  function madridNowParts(date = new Date()) {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Europe/Madrid",
+      weekday: "short",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -2248,8 +2316,34 @@
       minute: "2-digit",
       second: "2-digit",
       hourCycle: "h23",
-    }).formatToParts(new Date());
-    return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    }).formatToParts(date);
+
+    return Object.fromEntries(
+      parts.map((part) => [part.type, part.value]),
+    );
+  }
+
+  const MUNICIPAL_PORTAL_WEEKDAYS =
+    new Set(["Mon", "Tue", "Wed", "Thu", "Fri"]);
+
+  const MUNICIPAL_PORTAL_OPEN_MINUTE =
+    6 * 60;
+
+  const MUNICIPAL_PORTAL_CLOSE_MINUTE =
+    20 * 60;
+
+  function municipalPortalIsOpen(date = new Date()) {
+    const now = madridNowParts(date);
+
+    const minuteOfDay =
+      (Number(now.hour) * 60)
+      + Number(now.minute);
+
+    return (
+      MUNICIPAL_PORTAL_WEEKDAYS.has(now.weekday)
+      && minuteOfDay >= MUNICIPAL_PORTAL_OPEN_MINUTE
+      && minuteOfDay < MUNICIPAL_PORTAL_CLOSE_MINUTE
+    );
   }
 
   const SESSION_REGISTRATION_GRACE_MINUTES = 40;
@@ -6680,6 +6774,12 @@
 
   async function handleLogin(event) {
     event.preventDefault();
+
+    if (!municipalPortalIsOpen()) {
+      enforceMunicipalBusinessHoursUi();
+      return;
+    }
+
     clearNotice();
     const email = elements.email.value.trim().toLowerCase();
     const password = elements.password.value;
@@ -7183,6 +7283,16 @@
   }
 
   async function initialize() {
+    /*
+     * El horario se comprueba antes de crear el cliente Supabase.
+     * Fuera de L-V 06:00-20:00 la página es completamente estática.
+     */
+    if (!startMunicipalBusinessHoursGuard()) {
+      return;
+    }
+
+    setPortalVisible(false);
+
     if (!configurationIsValid()) {
       setPortalVisible(false);
       showNotice("warning", "Falta completar config.js con la URL del proyecto y la publishable key de Supabase.");
@@ -7205,7 +7315,7 @@
     // Actualiza los cortes horarios aunque el Ayuntamiento
     // mantenga abierta la pantalla sin pulsar «Actualizar».
     window.setInterval(() => {
-      if (!currentUser) return;
+      if (!currentUser || !municipalPortalIsOpen()) return;
 
       const visibleSessionCount =
         sessions.filter(sessionVisibleInRegistrationPortal).length;
