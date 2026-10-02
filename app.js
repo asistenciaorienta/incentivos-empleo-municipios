@@ -171,6 +171,17 @@
     finalSessionSummary: document.querySelector("#finalSessionSummary"),
     eligibleParticipant: document.querySelector("#eligibleParticipant"),
     finalHistoricalContractNotice: document.querySelector("#finalHistoricalContractNotice"),
+    finalHistoricalIdentityMode: document.querySelector("#finalHistoricalIdentityMode"),
+    finalHistoricalIdentityFields: document.querySelector("#finalHistoricalIdentityFields"),
+    finalHistoricalFirstName: document.querySelector("#finalHistoricalFirstName"),
+    finalHistoricalFirstSurname: document.querySelector("#finalHistoricalFirstSurname"),
+    finalHistoricalSecondSurname: document.querySelector("#finalHistoricalSecondSurname"),
+    finalHistoricalDocumentType: document.querySelector("#finalHistoricalDocumentType"),
+    finalHistoricalDocumentNumber: document.querySelector("#finalHistoricalDocumentNumber"),
+    finalHistoricalContractStartDate: document.querySelector("#finalHistoricalContractStartDate"),
+    finalHistoricalContractEndDate: document.querySelector("#finalHistoricalContractEndDate"),
+    finalHistoricalInformationConfirmed: document.querySelector("#finalHistoricalInformationConfirmed"),
+    finalHistoricalSafePreview: document.querySelector("#finalHistoricalSafePreview"),
     finalProgram: document.querySelector("#finalProgram"),
     finalMaterialConfirmed: document.querySelector("#finalMaterialConfirmed"),
     closeFinalDialog: document.querySelector("#closeFinalDialog"),
@@ -4734,41 +4745,192 @@
     elements.initialDialog.close();
   }
 
+  function updateFinalHistoricalSafePreview() {
+    if (!elements.finalHistoricalSafePreview) return;
+
+    const firstName =
+      normalizePersonText(
+        elements.finalHistoricalFirstName?.value
+        || ""
+      );
+
+    const firstSurname =
+      normalizePersonText(
+        elements.finalHistoricalFirstSurname?.value
+        || ""
+      );
+
+    const secondSurname =
+      normalizePersonText(
+        elements.finalHistoricalSecondSurname?.value
+        || ""
+      );
+
+    const documentNumber =
+      normalizeDocument(
+        elements.finalHistoricalDocumentNumber?.value
+        || ""
+      );
+
+    const previewName =
+      firstName
+      && firstSurname
+      && secondSurname
+        ? displayName(
+            firstName,
+            firstSurname,
+            secondSurname
+          )
+        : "Nombre I. I.";
+
+    const previewDocument =
+      documentNumber
+        ? maskedDocument(documentNumber)
+        : "***0000**";
+
+    elements.finalHistoricalSafePreview.textContent =
+      `${previewName} · ${previewDocument}`;
+  }
+
+
+  function setFinalHistoricalIdentityMode(
+    enabled,
+    session = null
+  ) {
+    const historical = Boolean(enabled);
+
+    elements.finalHistoricalIdentityMode.checked =
+      historical;
+
+    elements.finalHistoricalIdentityFields.hidden =
+      !historical;
+
+    elements.eligibleParticipant.disabled =
+      historical;
+
+    elements.eligibleParticipant.required =
+      !historical;
+
+    const historicalFields = [
+      elements.finalHistoricalFirstName,
+      elements.finalHistoricalFirstSurname,
+      elements.finalHistoricalSecondSurname,
+      elements.finalHistoricalDocumentType,
+      elements.finalHistoricalDocumentNumber,
+      elements.finalHistoricalContractStartDate,
+      elements.finalHistoricalContractEndDate,
+      elements.finalHistoricalInformationConfirmed,
+    ];
+
+    for (const field of historicalFields) {
+      if (!field) continue;
+
+      field.disabled = !historical;
+      field.required = historical;
+    }
+
+    if (historical) {
+      elements.finalHistoricalContractNotice.hidden =
+        true;
+
+      if (session) {
+        elements.finalHistoricalContractStartDate.max =
+          session.session_date || "";
+
+        elements.finalHistoricalContractEndDate.min =
+          session.session_date || "";
+
+        elements.finalProgram.innerHTML =
+          programOptions(session);
+      }
+
+      updateFinalHistoricalSafePreview();
+
+      window.setTimeout(
+        () => elements.finalHistoricalFirstName?.focus(),
+        0,
+      );
+
+      return;
+    }
+
+    const participant =
+      session
+        ? eligibleParticipantsForSession(session)
+            .find(
+              (item) =>
+                String(item.id)
+                === String(
+                  elements.eligibleParticipant.value
+                )
+            )
+        : null;
+
+    if (session) {
+      elements.finalProgram.innerHTML =
+        programOptions(
+          session,
+          participant?.previous_program_id || ""
+        );
+    }
+
+    updateFinalContractNotice(participant);
+  }
+
+
   function openFinalDialog(
     sessionId,
     preferredParticipantId = ""
   ) {
     const session = findSession(sessionId);
+
     if (!session) return;
 
     if (sessionHasStarted(session)) {
       renderSessions();
+
       showNotice(
         "warning",
         "La sesión ya ha comenzado y no admite nuevas inscripciones.",
       );
+
       return;
     }
 
     clearNotice(elements.finalRegistrationNotice);
+
     elements.finalForm.reset();
-    const availablePrograms = programsForSession(session);
+
+    const availablePrograms =
+      programsForSession(session);
+
     if (availablePrograms.length === 0) {
-      showNotice("warning", "No hay ningún programa activo para la fecha de esta sesión final.");
+      showNotice(
+        "warning",
+        "No hay ningún programa activo para la fecha de esta sesión final."
+      );
+
       return;
     }
-    elements.finalSessionId.value = session.id;
-    elements.finalSessionSummary.textContent = `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
+
+    elements.finalSessionId.value =
+      session.id;
+
+    elements.finalSessionSummary.textContent =
+      `${session.title} · ${formatDate(session.session_date)} · ${formatTime(session.start_time)}`;
+
     const availableParticipants =
       eligibleParticipantsForSession(session);
 
     elements.eligibleParticipant.innerHTML =
-      availableParticipants
-        .map(
-          (participant) =>
-            `<option value="${participant.id}">${escapeHtml(participant.display_name)} · ${escapeHtml(participant.masked_document)}</option>`
-        )
-        .join("");
+      availableParticipants.length
+        ? availableParticipants
+            .map(
+              (participant) =>
+                `<option value="${participant.id}">${escapeHtml(participant.display_name)} · ${escapeHtml(participant.masked_document)}</option>`
+            )
+            .join("")
+        : '<option value="">No hay personas disponibles en la lista</option>';
 
     const selectedParticipant =
       availableParticipants.find(
@@ -4776,19 +4938,25 @@
           String(participant.id)
           === String(preferredParticipantId)
       )
-      ?? availableParticipants[0];
+      ?? availableParticipants[0]
+      ?? null;
 
-    if (!selectedParticipant) {
-      showNotice(
-        "warning",
-        "No hay personas disponibles para esta sesión final."
-      );
-
-      return;
+    if (selectedParticipant) {
+      elements.eligibleParticipant.value =
+        String(selectedParticipant.id);
     }
 
-    elements.eligibleParticipant.value =
-      String(selectedParticipant.id);
+    elements.finalHistoricalContractStartDate.value =
+      "";
+
+    elements.finalHistoricalContractEndDate.value =
+      "";
+
+    elements.finalHistoricalContractStartDate.max =
+      session.session_date || "";
+
+    elements.finalHistoricalContractEndDate.min =
+      session.session_date || "";
 
     elements.finalProgram.innerHTML =
       programOptions(
@@ -4796,9 +4964,24 @@
         selectedParticipant?.previous_program_id || ""
       );
 
+    /*
+     * TEMPORAL HISTÓRICO 2026:
+     *
+     * Si no hay nadie en la lista, el diálogo sigue abriéndose
+     * y activa automáticamente el alta directa de persona.
+     */
+    setFinalHistoricalIdentityMode(
+      !selectedParticipant,
+      session
+    );
+
     elements.finalDialog.showModal();
 
-    updateFinalContractNotice(selectedParticipant);
+    if (selectedParticipant) {
+      updateFinalContractNotice(
+        selectedParticipant
+      );
+    }
   }
 
   function closeFinalDialog() {
@@ -5620,102 +5803,620 @@
 
   async function handleFinalRegistration(event) {
     event.preventDefault();
-    clearNotice(elements.finalRegistrationNotice);
-    const participantId = elements.eligibleParticipant.value;
-    const sessionId = elements.finalSessionId.value;
-    const programId = elements.finalProgram.value;
 
-    const selectedSession = sessions.find(
-      (session) => String(session.id) === String(sessionId),
+    clearNotice(
+      elements.finalRegistrationNotice
     );
 
-    if (!selectedSession || sessionHasStarted(selectedSession)) {
+    const historicalDirectFinal =
+      elements.finalHistoricalIdentityMode.checked;
+
+    const participantId =
+      elements.eligibleParticipant.value;
+
+    const sessionId =
+      elements.finalSessionId.value;
+
+    const programId =
+      elements.finalProgram.value;
+
+    const selectedSession =
+      sessions.find(
+        (session) =>
+          String(session.id)
+          === String(sessionId)
+      );
+
+    if (
+      !selectedSession
+      || sessionHasStarted(selectedSession)
+    ) {
       showNotice(
         "warning",
         "El plazo de inscripción ha finalizado porque la sesión ya ha comenzado.",
         elements.finalRegistrationNotice,
       );
+
       renderSessions();
+
       return;
     }
 
-    if (!participantId) {
-      showNotice("warning", "Selecciona una persona disponible.", elements.finalRegistrationNotice);
-      return;
-    }
-
-    const selectedParticipant =
-      eligibleParticipantsForSession(selectedSession)
-        .find(
-          (participant) =>
-            participant.id === participantId
-        );
-
-    if (!selectedParticipant) {
+    if (!programId) {
       showNotice(
         "warning",
-        "La persona seleccionada no está disponible para esta fecha de sesión final.",
+        "Selecciona el programa en el que participa.",
         elements.finalRegistrationNotice
       );
-      renderSessions();
+
       return;
     }
-    if (!programId) {
-      showNotice("warning", "Selecciona el programa en el que participa.", elements.finalRegistrationNotice);
+
+    if (
+      !elements.finalMaterialConfirmed.checked
+    ) {
+      showNotice(
+        "warning",
+        "Debes confirmar que has entregado el material de la sesión final a las personas inscritas.",
+        elements.finalRegistrationNotice
+      );
+
       return;
     }
-    if (!elements.finalMaterialConfirmed.checked) {
-      showNotice("warning", "Debes confirmar que has entregado el material de la sesión final a las personas inscritas.", elements.finalRegistrationNotice);
+
+
+    /*
+     * ========================================================
+     * FINAL ORDINARIA · PERSONA YA EXISTENTE
+     * ========================================================
+     */
+
+    if (!historicalDirectFinal) {
+      if (!participantId) {
+        showNotice(
+          "warning",
+          "Selecciona una persona disponible.",
+          elements.finalRegistrationNotice
+        );
+
+        return;
+      }
+
+      const selectedParticipant =
+        eligibleParticipantsForSession(
+          selectedSession
+        )
+          .find(
+            (participant) =>
+              String(participant.id)
+              === String(participantId)
+          );
+
+      if (!selectedParticipant) {
+        showNotice(
+          "warning",
+          "La persona seleccionada no está disponible para esta fecha de sesión final.",
+          elements.finalRegistrationNotice
+        );
+
+        renderSessions();
+
+        return;
+      }
+
+      elements.submitFinalRegistration.disabled =
+        true;
+
+      try {
+        const previousParticipantCount =
+          registrationsForSession(
+            sessionId
+          ).length;
+
+        const { error } =
+          await municipalRpc(
+            "register_final",
+            {
+              p_participant_id:
+                participantId,
+
+              p_session_id:
+                sessionId,
+
+              p_program_id:
+                programId,
+            }
+          );
+
+        if (error) {
+          throw new Error(
+            error.message
+          );
+        }
+
+        closeFinalDialog();
+
+        await loadRegistrations();
+        await loadSessions();
+
+        setActiveSection(
+          "sessionsSection"
+        );
+
+        const linkShown =
+          revealSessionLinkAfterRegistration(
+            sessionId
+          );
+
+        showNotice(
+          "success",
+          linkShown
+            ? "La persona ha quedado inscrita en la sesión final. El enlace de la sesión se muestra debajo y está listo para copiar."
+            : "La persona ha quedado inscrita en la sesión final.",
+        );
+
+        openRegistrationSuccessDialog(
+          sessionId,
+          "Final",
+          participantId,
+        );
+
+        void refreshSessionParticipantsAfterRegistration(
+          sessionId,
+          previousParticipantCount,
+        );
+
+        if (linkShown) {
+          window.setTimeout(
+            () =>
+              revealSessionLinkAfterRegistration(
+                sessionId
+              ),
+            80,
+          );
+        }
+      } catch (error) {
+        const message =
+          String(
+            error?.message
+            || "No se pudo completar la inscripción final."
+          );
+
+        const friendly =
+          message.includes(
+            "capacidad ordinaria"
+          )
+            ? "La sesión está completa. No se pueden realizar nuevas inscripciones."
+            : (
+                message.includes(
+                  "session_registrations_one_active_phase"
+                )
+                || message.includes(
+                  "duplicate key"
+                )
+              )
+              ? "Esta persona ya tiene una inscripción activa en una sesión final. Pulsa Actualizar para refrescar la lista."
+              : message;
+
+        showNotice(
+          "error",
+          friendly,
+          elements.finalRegistrationNotice
+        );
+      } finally {
+        elements.submitFinalRegistration.disabled =
+          false;
+
+        elements.submitFinalRegistration.textContent =
+          "Inscribir en sesión final";
+      }
+
       return;
     }
-    elements.submitFinalRegistration.disabled = true;
+
+
+    /*
+     * ========================================================
+     * TEMPORAL HISTÓRICO 2026
+     * PERSONA NUEVA DIRECTAMENTE EN FINAL
+     * ========================================================
+     */
+
+    const firstName =
+      normalizePersonText(
+        elements.finalHistoricalFirstName.value
+      );
+
+    const firstSurname =
+      normalizePersonText(
+        elements.finalHistoricalFirstSurname.value
+      );
+
+    const secondSurname =
+      normalizePersonText(
+        elements.finalHistoricalSecondSurname.value
+      );
+
+    const documentType =
+      elements.finalHistoricalDocumentType.value;
+
+    const documentNumber =
+      normalizeDocument(
+        elements.finalHistoricalDocumentNumber.value
+      );
+
+    const contractStartDate =
+      elements.finalHistoricalContractStartDate.value;
+
+    const contractEndDate =
+      elements.finalHistoricalContractEndDate.value;
+
+
+    if (
+      !contractStartDate
+      || !contractEndDate
+    ) {
+      showNotice(
+        "warning",
+        "Debes indicar la fecha de inicio y la fecha de fin del contrato.",
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+    if (
+      contractStartDate
+      > contractEndDate
+    ) {
+      showNotice(
+        "warning",
+        "La fecha de inicio del contrato no puede ser posterior a la fecha de fin.",
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+    if (
+      selectedSession.session_date
+        < contractStartDate
+      || selectedSession.session_date
+        > contractEndDate
+    ) {
+      showNotice(
+        "warning",
+        "La sesión final debe celebrarse durante el periodo de contratación de la persona participante.",
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+    if (
+      !firstName
+      || !firstSurname
+      || !secondSurname
+    ) {
+      showNotice(
+        "warning",
+        "Completa el nombre y los dos apellidos.",
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+    if (
+      !validateDocument(
+        documentType,
+        documentNumber
+      )
+    ) {
+      showNotice(
+        "warning",
+        `El ${documentType} no tiene un formato o letra de control válidos.`,
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+    if (
+      !elements
+        .finalHistoricalInformationConfirmed
+        .checked
+    ) {
+      showNotice(
+        "warning",
+        "Debes confirmar que se ha facilitado la información sobre protección de datos.",
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+    if (!activeEncryptionKey) {
+      showNotice(
+        "error",
+        "No se puede preparar esta operación de forma segura en este momento.",
+        elements.finalRegistrationNotice
+      );
+
+      return;
+    }
+
+
+    elements.submitFinalRegistration.disabled =
+      true;
+
+    elements.submitFinalRegistration.textContent =
+      "Preparando inscripción…";
+
+
     try {
       const previousParticipantCount =
-        registrationsForSession(sessionId).length;
+        registrationsForSession(
+          sessionId
+        ).length;
 
-      const { error } = await municipalRpc("register_final", { p_participant_id: participantId, p_session_id: sessionId, p_program_id: programId });
-      if (error) throw new Error(error.message);
+      const identity = {
+        first_name:
+          firstName,
+
+        first_surname:
+          firstSurname,
+
+        second_surname:
+          secondSurname,
+
+        document_type:
+          documentType,
+
+        document_number:
+          documentNumber,
+      };
+
+      const context = {
+        municipality_id:
+          currentProfile.municipality.id,
+
+        session_id:
+          sessionId,
+
+        created_by:
+          currentUser.id,
+      };
+
+      const encrypted =
+        await encryptIdentity(
+          identity,
+          context,
+          activeEncryptionKey.public_key_pem
+        );
+
+      elements.submitFinalRegistration.textContent =
+        "Registrando…";
+
+      const {
+        data,
+        error,
+      } = await municipalRpc(
+        "register_historical_final_with_identity",
+        {
+          p_session_id:
+            sessionId,
+
+          p_program_id:
+            programId,
+
+          p_display_name:
+            displayName(
+              firstName,
+              firstSurname,
+              secondSurname
+            ),
+
+          p_masked_document:
+            maskedDocument(
+              documentNumber
+            ),
+
+          p_key_id:
+            activeEncryptionKey.id,
+
+          p_encrypted_key:
+            encrypted.encryptedKey,
+
+          p_iv:
+            encrypted.iv,
+
+          p_ciphertext:
+            encrypted.ciphertext,
+
+          p_contract_start_date:
+            contractStartDate,
+
+          p_contract_end_date:
+            contractEndDate,
+
+          p_payload_version:
+            1,
+        }
+      );
+
+      if (error) {
+        throw new Error(
+          error.message
+        );
+      }
+
+      const rpcResult =
+        Array.isArray(data)
+          ? data[0]
+          : data;
+
+      const newParticipantId =
+        rpcResult?.participant_id;
+
+      const registrationId =
+        rpcResult?.registration_id;
+
+      if (
+        !newParticipantId
+        || !registrationId
+      ) {
+        throw new Error(
+          "No se han recibido los identificadores necesarios para validar la inscripción."
+        );
+      }
+
       closeFinalDialog();
-      await loadRegistrations();
-      await loadSessions();
-      setActiveSection("sessionsSection");
 
-      const linkShown = revealSessionLinkAfterRegistration(sessionId);
-
-      showNotice(
-        "success",
-        linkShown
-          ? "La persona ha quedado inscrita en la sesión final. El enlace de la sesión se muestra debajo y está listo para copiar."
-          : "La persona ha quedado inscrita en la sesión final.",
+      setActiveSection(
+        "sessionsSection"
       );
 
-      openRegistrationSuccessDialog(
-        sessionId,
-        "Final",
-        participantId,
+      openRegistrationValidationDialog(
+        sessionId
       );
 
-      void refreshSessionParticipantsAfterRegistration(
-        sessionId,
-        previousParticipantCount,
-      );
+      let validation;
 
-      if (linkShown) {
-        window.setTimeout(
-          () => revealSessionLinkAfterRegistration(sessionId),
-          80,
+      try {
+        validation =
+          await waitForInitialRegistrationValidation(
+            registrationId,
+            newParticipantId,
+          );
+
+        validation =
+          await resolveInitialIdentityChoice({
+            validation,
+            registrationId,
+            participantId:
+              newParticipantId,
+            sessionId,
+            enteredIdentityName:
+              [
+                firstName,
+                firstSurname,
+                secondSurname,
+              ].join(" "),
+          });
+
+        await loadRegistrations();
+        await loadSessions();
+      } catch (validationError) {
+        showRegistrationValidationResult(
+          "No se pudo comprobar la inscripción",
+          validationError instanceof Error
+            ? validationError.message
+            : "No se pudo comprobar el resultado de la validación.",
+        );
+
+        return;
+      }
+
+      if (
+        validation.state
+        === "accepted"
+      ) {
+        const linkShown =
+          revealSessionLinkAfterRegistration(
+            sessionId
+          );
+
+        showNotice(
+          "success",
+          linkShown
+            ? "La persona ha quedado inscrita en la sesión final. El enlace de la sesión se muestra debajo y está listo para copiar."
+            : "La persona ha quedado inscrita en la sesión final.",
+        );
+
+        openRegistrationSuccessDialog(
+          sessionId,
+          "Final",
+        );
+
+        void refreshSessionParticipantsAfterRegistration(
+          sessionId,
+          previousParticipantCount,
+        );
+
+        if (linkShown) {
+          window.setTimeout(
+            () =>
+              revealSessionLinkAfterRegistration(
+                sessionId
+              ),
+            80,
+          );
+        }
+      } else if (
+        validation.state
+        === "rejected"
+      ) {
+        showRegistrationValidationResult(
+          "No se ha realizado la inscripción",
+          validation.message,
+        );
+      } else if (
+        validation.state
+        === "cancelled"
+      ) {
+        showRegistrationValidationResult(
+          "Inscripción cancelada",
+          validation.message,
+        );
+      } else if (
+        validation.state
+        === "error"
+      ) {
+        showRegistrationValidationResult(
+          "La inscripción requiere revisión",
+          validation.message,
+        );
+      } else {
+        showRegistrationValidationResult(
+          "La validación continúa",
+          "La solicitud sigue pendiente de validación por el servidor SAE. Puedes cerrar esta ventana y pulsar Actualizar más adelante para consultar el resultado.",
         );
       }
     } catch (error) {
-      const message = String(error?.message || "No se pudo completar la inscripción final.");
-      const friendly = message.includes("capacidad ordinaria")
-        ? "La sesión está completa. No se pueden realizar nuevas inscripciones."
-        : message.includes("session_registrations_one_active_phase") || message.includes("duplicate key")
-          ? "Esta persona ya tiene una inscripción activa en una sesión final. Pulsa Actualizar para refrescar la lista."
-          : message;
-      showNotice("error", friendly, elements.finalRegistrationNotice);
+      const message =
+        String(
+          error?.message
+          || "No se pudo completar la inscripción final."
+        );
+
+      const friendly =
+        message.includes(
+          "capacidad ordinaria"
+        )
+          ? "La sesión está completa. No se pueden realizar nuevas inscripciones."
+          : (
+              message.includes(
+                "session_registrations_one_active_phase"
+              )
+              || message.includes(
+                "duplicate key"
+              )
+            )
+            ? "Esta persona ya tiene una inscripción activa en una sesión final."
+            : message;
+
+      showNotice(
+        "error",
+        friendly,
+        elements.finalRegistrationNotice
+      );
     } finally {
-      elements.submitFinalRegistration.disabled = false;
+      elements.submitFinalRegistration.disabled =
+        false;
+
+      elements.submitFinalRegistration.textContent =
+        "Inscribir en sesión final";
     }
   }
 
@@ -7249,15 +7950,21 @@
     elements.closeInitialDialog.addEventListener("click", closeInitialDialog);
     elements.cancelInitialRegistration.addEventListener("click", closeInitialDialog);
     elements.finalForm.addEventListener("submit", handleFinalRegistration);
+
     elements.eligibleParticipant.addEventListener("change", () => {
       const session =
-        findSession(elements.finalSessionId.value);
+        findSession(
+          elements.finalSessionId.value
+        );
 
       const participant =
         eligibleParticipantsForSession(session)
           .find(
             (item) =>
-              item.id === elements.eligibleParticipant.value
+              String(item.id)
+              === String(
+                elements.eligibleParticipant.value
+              )
           );
 
       elements.finalProgram.innerHTML =
@@ -7266,8 +7973,38 @@
           participant?.previous_program_id || ""
         );
 
-      updateFinalContractNotice(participant);
+      updateFinalContractNotice(
+        participant
+      );
     });
+
+    elements.finalHistoricalIdentityMode.addEventListener(
+      "change",
+      () => {
+        const session =
+          findSession(
+            elements.finalSessionId.value
+          );
+
+        setFinalHistoricalIdentityMode(
+          elements.finalHistoricalIdentityMode.checked,
+          session
+        );
+      }
+    );
+
+    for (const field of [
+      elements.finalHistoricalFirstName,
+      elements.finalHistoricalFirstSurname,
+      elements.finalHistoricalSecondSurname,
+      elements.finalHistoricalDocumentNumber,
+    ]) {
+      field.addEventListener(
+        "input",
+        updateFinalHistoricalSafePreview
+      );
+    }
+
     elements.closeFinalDialog.addEventListener("click", closeFinalDialog);
     elements.cancelFinalRegistration.addEventListener("click", closeFinalDialog);
 

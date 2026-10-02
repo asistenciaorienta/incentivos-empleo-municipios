@@ -1026,21 +1026,136 @@
         <button id="closeFinalDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
       </div>
       <input id="finalSessionId" type="hidden">
-      <label>
-        <span>Persona que ha completado la sesión inicial</span>
-        <select id="eligibleParticipant" required></select>
-      </label>
-        <div
-          id="finalHistoricalContractNotice"
-          class="contract-info-notice"
-          role="status"
-          hidden
-        ></div>
 
-<label>
+      <label>
+        <span>Persona participante</span>
+        <select id="eligibleParticipant" required></select>
+        <small class="field-help">
+          Selecciona una persona ya registrada o utiliza la opción inferior si no aparece en la lista.
+        </small>
+      </label>
+
+      <label class="checkbox-label">
+        <input
+          id="finalHistoricalIdentityMode"
+          type="checkbox"
+        >
+        <span>
+          La persona no aparece en la lista
+        </span>
+      </label>
+
+      <div
+        id="finalHistoricalContractNotice"
+        class="contract-info-notice"
+        role="status"
+        hidden
+      ></div>
+
+      <div
+        id="finalHistoricalIdentityFields"
+        hidden
+      >
+        <div class="form-grid">
+          <label>
+            <span>Nombre</span>
+            <input
+              id="finalHistoricalFirstName"
+              type="text"
+              autocomplete="off"
+            >
+          </label>
+
+          <label>
+            <span>Primer apellido</span>
+            <input
+              id="finalHistoricalFirstSurname"
+              type="text"
+              autocomplete="off"
+            >
+          </label>
+
+          <label>
+            <span>Segundo apellido</span>
+            <input
+              id="finalHistoricalSecondSurname"
+              type="text"
+              autocomplete="off"
+            >
+          </label>
+
+          <label>
+            <span>Tipo de documento</span>
+            <select id="finalHistoricalDocumentType">
+              <option value="DNI">DNI</option>
+              <option value="NIE">NIE</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Número de documento</span>
+            <input
+              id="finalHistoricalDocumentNumber"
+              type="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+            >
+          </label>
+
+          <label>
+            <span>Inicio del contrato</span>
+            <input
+              id="finalHistoricalContractStartDate"
+              type="date"
+            >
+          </label>
+
+          <label>
+            <span>Fin del contrato</span>
+            <input
+              id="finalHistoricalContractEndDate"
+              type="date"
+            >
+          </label>
+        </div>
+
+        <div class="privacy-box">
+          <p>
+            <strong>Información que verá el ayuntamiento:</strong>
+          </p>
+
+          <p id="finalHistoricalSafePreview">
+            Nombre I. I. · ***0000**
+          </p>
+
+          <label class="checkbox-label">
+            <input
+              id="finalHistoricalInformationConfirmed"
+              type="checkbox"
+            >
+            <span>
+              Declaro que se ha facilitado a la persona la información aplicable sobre el tratamiento de sus datos.
+            </span>
+          </label>
+        </div>
+
+        <div class="contract-info-notice">
+          <strong>Inscripción histórica en sesión final.</strong>
+          <div>
+            Utiliza esta opción únicamente cuando la persona no aparece en la lista porque su sesión inicial histórica todavía no está mecanizada.
+            No se creará ninguna sesión inicial ficticia.
+          </div>
+        </div>
+      </div>
+
+      <label>
         <span>Programa en el que participa</span>
         <select id="finalProgram" required></select>
-        <small class="field-help">Se propone el programa de la sesión inicial, pero puede modificarse.</small>
+        <small class="field-help">
+          Si la persona ya estaba registrada se propone su programa anterior.
+          Para una persona nueva, selecciona el programa correspondiente.
+        </small>
       </label>
 
       <div class="registration-material-box">
