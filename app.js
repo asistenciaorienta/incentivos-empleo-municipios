@@ -4395,21 +4395,86 @@
           .filter(Boolean)
       );
 
-      eligibleParticipants = registrations
-        .filter((item) =>
-          item.phase === "initial"
-          && item.status === "attended"
-          && item.participant?.id
-          && !item.participant.contract_termination_date
-          && !activeFinalParticipantIds.has(item.participant.id)
-        )
-        .map((item) => ({
-          ...item.participant,
-          previous_program_id: item.program_id,
-          previous_program_name: item.program_name_snapshot
+      /*
+       * TEMPORAL HISTÓRICO 2026:
+       * además de quienes constan con sesión inicial realizada,
+       * permitimos seleccionar para una sesión final a personas
+       * históricas del Ayuntamiento cuya inicial todavía no está
+       * mecanizada (progress_status = "new").
+       *
+       * No incluimos initial_registered: si existe una inscripción
+       * inicial pendiente, debe seguir su flujo ordinario.
+       */
+      const { data: municipalityParticipants, error: participantsError } =
+        await client
+          .from("participants")
+          .select(`
+            id,
+            display_name,
+            masked_document,
+            progress_status,
+            sync_status,
+            incident_message,
+            contract_start_date,
+            contract_end_date,
+            contract_termination_date,
+            contract_termination_reason
+          `)
+          .eq("municipality_id", currentProfile.municipality.id);
+
+      if (participantsError) {
+        throw new Error(
+          `No se pudieron consultar las personas participantes: ${participantsError.message}`
+        );
+      }
+
+      const attendedInitialByParticipant = new Map(
+        registrations
+          .filter((item) =>
+            item.phase === "initial"
+            && item.status === "attended"
+            && item.participant?.id
+          )
+          .map((item) => [
+            item.participant.id,
+            {
+              previous_program_id: item.program_id,
+              previous_program_name: item.program_name_snapshot
+            }
+          ])
+      );
+
+      eligibleParticipants = (Array.isArray(municipalityParticipants)
+        ? municipalityParticipants
+        : []
+      )
+        .filter((participant) => {
+          if (!participant?.id) return false;
+          if (participant.contract_termination_date) return false;
+          if (activeFinalParticipantIds.has(participant.id)) return false;
+
+          const hasAttendedInitial =
+            attendedInitialByParticipant.has(participant.id);
+
+          const historicalWithoutMechanizedInitial =
+            participant.progress_status === "new";
+
+          return (
+            hasAttendedInitial
+            || historicalWithoutMechanizedInitial
+          );
+        })
+        .map((participant) => ({
+          ...participant,
+          ...(attendedInitialByParticipant.get(participant.id) || {})
         }))
-        .filter((participant, index, all) =>
-          all.findIndex((other) => other?.id === participant.id) === index
+        .sort((a, b) =>
+          String(a.display_name || "")
+            .localeCompare(
+              String(b.display_name || ""),
+              "es",
+              { sensitivity: "base" }
+            )
         );
       if (elements.registrationTabCount) elements.registrationTabCount.textContent = String(registrations.length);
       renderIncidents();
