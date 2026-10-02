@@ -178,8 +178,6 @@
     finalHistoricalSecondSurname: document.querySelector("#finalHistoricalSecondSurname"),
     finalHistoricalDocumentType: document.querySelector("#finalHistoricalDocumentType"),
     finalHistoricalDocumentNumber: document.querySelector("#finalHistoricalDocumentNumber"),
-    finalHistoricalContractStartDate: document.querySelector("#finalHistoricalContractStartDate"),
-    finalHistoricalContractEndDate: document.querySelector("#finalHistoricalContractEndDate"),
     finalHistoricalInformationConfirmed: document.querySelector("#finalHistoricalInformationConfirmed"),
     finalHistoricalSafePreview: document.querySelector("#finalHistoricalSafePreview"),
     finalProgram: document.querySelector("#finalProgram"),
@@ -4817,8 +4815,6 @@
       elements.finalHistoricalSecondSurname,
       elements.finalHistoricalDocumentType,
       elements.finalHistoricalDocumentNumber,
-      elements.finalHistoricalContractStartDate,
-      elements.finalHistoricalContractEndDate,
       elements.finalHistoricalInformationConfirmed,
     ];
 
@@ -4834,12 +4830,6 @@
         true;
 
       if (session) {
-        elements.finalHistoricalContractStartDate.max =
-          session.session_date || "";
-
-        elements.finalHistoricalContractEndDate.min =
-          session.session_date || "";
-
         elements.finalProgram.innerHTML =
           programOptions(session);
       }
@@ -4945,18 +4935,6 @@
       elements.eligibleParticipant.value =
         String(selectedParticipant.id);
     }
-
-    elements.finalHistoricalContractStartDate.value =
-      "";
-
-    elements.finalHistoricalContractEndDate.value =
-      "";
-
-    elements.finalHistoricalContractStartDate.max =
-      session.session_date || "";
-
-    elements.finalHistoricalContractEndDate.min =
-      session.session_date || "";
 
     elements.finalProgram.innerHTML =
       programOptions(
@@ -6045,54 +6023,6 @@
         elements.finalHistoricalDocumentNumber.value
       );
 
-    const contractStartDate =
-      elements.finalHistoricalContractStartDate.value;
-
-    const contractEndDate =
-      elements.finalHistoricalContractEndDate.value;
-
-
-    if (
-      !contractStartDate
-      || !contractEndDate
-    ) {
-      showNotice(
-        "warning",
-        "Debes indicar la fecha de inicio y la fecha de fin del contrato.",
-        elements.finalRegistrationNotice
-      );
-
-      return;
-    }
-
-    if (
-      contractStartDate
-      > contractEndDate
-    ) {
-      showNotice(
-        "warning",
-        "La fecha de inicio del contrato no puede ser posterior a la fecha de fin.",
-        elements.finalRegistrationNotice
-      );
-
-      return;
-    }
-
-    if (
-      selectedSession.session_date
-        < contractStartDate
-      || selectedSession.session_date
-        > contractEndDate
-    ) {
-      showNotice(
-        "warning",
-        "La sesión final debe celebrarse durante el periodo de contratación de la persona participante.",
-        elements.finalRegistrationNotice
-      );
-
-      return;
-    }
-
     if (
       !firstName
       || !firstSurname
@@ -6235,10 +6165,10 @@
             encrypted.ciphertext,
 
           p_contract_start_date:
-            contractStartDate,
+            null,
 
           p_contract_end_date:
-            contractEndDate,
+            null,
 
           p_payload_version:
             1,
