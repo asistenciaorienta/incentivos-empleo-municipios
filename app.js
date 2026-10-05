@@ -2105,10 +2105,19 @@
     const canRegisterInitial =
       isInitial && registrationAvailable;
 
+    /*
+     * TEMPORAL HISTÓRICO 2026:
+     *
+     * Una sesión Final puede admitir inscripción aunque el
+     * Ayuntamiento no tenga todavía ninguna persona procedente
+     * de una Inicial mecanizada.
+     *
+     * Si no hay personas elegibles, openFinalDialog() activa
+     * automáticamente "La persona no aparece en la lista".
+     */
     const canRegisterFinal =
       !isInitial
-      && registrationAvailable
-      && eligibleForFinal.length > 0;
+      && registrationAvailable;
 
     let actionLabel = registrationStarted
       ? "Sesión iniciada"
@@ -2125,9 +2134,8 @@
     } else if (canRegisterFinal) {
       actionLabel = "Inscribir";
       actionClass = "js-register-final";
-    } else if (!isFull && !isInitial && session.registration_open && eligibleForFinal.length === 0) {
-      actionLabel = "Sin personas disponibles";
-      registrationNote = "La inscripción final se habilita para las personas cuya sesión inicial conste como realizada.";
+    } else if (!isFull && !isInitial && session.registration_open) {
+      registrationNote = "Puedes inscribir una persona ya registrada o añadirla directamente si todavía no aparece en el histórico.";
     } else if (isFull) {
       registrationNote = "La sesión está completa. Puedes consultar las personas participantes y copiar el enlace, pero no realizar nuevas inscripciones.";
     }
