@@ -333,8 +333,8 @@
               hidden
             >
               <span class="pending-management-label">Anexos I</span>
-              <strong><span id="pendingAnnexCreateCount">0</span> listos para preparar</strong>
-              <small>La sesión ha terminado y la Dirección Provincial ya ha cerrado la asistencia.</small>
+              <strong><span id="pendingAnnexCreateCount">0</span> pendientes de preparar o descargar</strong>
+              <small>Desde el inicio de la sesión puedes generar el Anexo I. Si ya está generado, podrá descargarse desde 15 minutos antes de finalizar.</small>
               <span class="pending-management-action">Ir a generación ›</span>
             </button>
 
@@ -1647,7 +1647,7 @@
 
       <div class="notice info annex-attendance-info">
         <strong>La asistencia la registra la Dirección Provincial.</strong>
-        El Anexo I incluye a todas las personas inscritas. Si alguna figura como «No asistió», el Ayuntamiento debe indicar aquí su motivo de no asistencia antes de generar el PDF. Ese motivo aparecerá en el espacio destinado a su firma.
+        El Anexo I incluye a todas las personas actualmente inscritas, aunque la Dirección Provincial todavía no haya comprobado su asistencia. Si alguna ya figura como «No asistió», el Ayuntamiento debe indicar aquí su motivo de no asistencia antes de generar el PDF. Ese motivo aparecerá en el espacio destinado a su firma.
       </div>
 
       <div class="modal-actions">
@@ -1662,20 +1662,21 @@
       <div class="modal-heading">
         <div>
           <p class="section-kicker">Antes de generar el PDF</p>
-          <h2 id="annexGenerationInfoTitle">Preparación del Anexo I para firmas</h2>
+          <h2 id="annexGenerationInfoTitle">Generación anticipada del Anexo I</h2>
         </div>
         <button id="closeAnnexGenerationInfoDialog" class="icon-button" type="button" aria-label="Cerrar">×</button>
       </div>
 
       <div class="privacy-box annex-generation-info-box">
-        <p><strong>Primera fase: firmas manuscritas.</strong> Este PDF todavía no es el documento final firmado digitalmente. Descárgalo e imprímelo para que firmen únicamente las personas asistentes; en las filas de quienes no asistieron aparecerá el motivo que haya indicado el Ayuntamiento.</p>
-        <p><strong>Después:</strong> digitaliza el documento firmado y obtén la firma digital de la persona responsable del ayuntamiento. Ese PDF será el que se incorpore desde «Subida de Anexos I».</p>
-        <p class="muted">El SAE genera el PDF con los datos completos, lo cifra y lo devuelve a este navegador.</p>
+        <p>Puedes generar el Anexo I desde el inicio de la sesión utilizando las personas actualmente inscritas.</p>
+        <p><strong>Ten en cuenta que la asistencia efectiva todavía puede no haber sido comprobada.</strong> Si posteriormente no pudiera acreditarse la asistencia de alguna de las personas incluidas, se generará una incidencia y tendrás que generar y enviar nuevamente el Anexo I corregido.</p>
+        <p>El documento quedará guardado una vez generado. Podrá descargarse desde 15 minutos antes de la finalización de la sesión y solo podrá subirse una vez que la sesión haya finalizado.</p>
+        <p class="muted">Si alguna persona ya figura como «No asistió», su motivo de ausencia aparecerá en el espacio destinado a la firma.</p>
       </div>
 
       <div class="modal-actions">
-        <button id="backAnnexGenerationInfo" class="button secondary" type="button">Volver</button>
-        <button id="confirmAnnexGenerationInfo" class="button primary" type="button">Entendido, generar PDF</button>
+        <button id="backAnnexGenerationInfo" class="button secondary" type="button">Cancelar</button>
+        <button id="confirmAnnexGenerationInfo" class="button primary" type="button">Generar Anexo I</button>
       </div>
     </div>
   </dialog>

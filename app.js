@@ -843,12 +843,12 @@
     if (filter === "all") return true;
     const document = latestDocumentForSession(group.session.id);
     const generation = latestGenerationForSession(group.session.id);
+    const started = sessionHasStarted(group.session);
     const finished = sessionHasFinished(group.session);
-    const attendanceClosed = group.pendingAttendance === 0;
-    const canCreate = finished && attendanceClosed && group.total > 0;
+    const canCreate = started && group.total > 0;
     const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
     const correction = document?.validation_status === "incident" || document?.sync_status === "error";
-    const canUpload = correction || (finished && attendanceClosed && group.total > 0 && downloadedForSignatures && !document);
+    const canUpload = correction || (finished && group.total > 0 && downloadedForSignatures && !document);
 
     if (documentViewMode === "create") {
       if (filter === "ready") return !document && canCreate;
@@ -969,8 +969,8 @@
         heading: "Generación de Anexos I",
         kicker: "Preparación para firmas",
         title: "Generar Anexo I",
-        description: "Solo se muestran sesiones celebradas. Con la asistencia validada, genera el Anexo I y completa las ausencias.",
-        empty: "No hay sesiones con inscripciones disponibles para generar el Anexo I."
+        description: "Desde la hora de inicio de la sesión puedes generar el Anexo I con las personas actualmente inscritas. Si la asistencia todavía no está cerrada, se generará de forma anticipada.",
+        empty: "No hay sesiones iniciadas con inscripciones disponibles para generar el Anexo I."
       },
       upload: {
         heading: "Subida de Anexos I",
@@ -983,8 +983,8 @@
         heading: "Descarga de Anexos I",
         kicker: "Documentos generados",
         title: "Descargar Anexo I",
-        description: "Solo se muestran sesiones finalizadas. Descarga el PDF validado.",
-        empty: "No hay sesiones finalizadas con Anexos I disponibles para descargar."
+        description: "El listado generado para firmas puede descargarse desde 15 minutos antes de finalizar la sesión. Los documentos validados por la Dirección Provincial permanecen disponibles en esta sección.",
+        empty: "No hay Anexos I disponibles para descargar."
       }
     }[documentViewMode];
     elements.documentsModeHeading.textContent = copy.heading;
@@ -2454,6 +2454,53 @@
     return String(session.end_time).slice(0, 8).padEnd(8, "0") <= currentTime;
   }
 
+  function sessionAnnexDownloadWallClockMs(session) {
+    if (!session?.session_date || !session?.end_time) return null;
+
+    const [year, month, day] = String(session.session_date)
+      .split("-")
+      .map(Number);
+
+    const [hour = 0, minute = 0, second = 0] =
+      String(session.end_time)
+        .split(":")
+        .map(Number);
+
+    if (
+      !Number.isFinite(year)
+      || !Number.isFinite(month)
+      || !Number.isFinite(day)
+      || !Number.isFinite(hour)
+      || !Number.isFinite(minute)
+      || !Number.isFinite(second)
+    ) {
+      return null;
+    }
+
+    return Date.UTC(
+      year,
+      month - 1,
+      day,
+      hour,
+      minute,
+      second,
+    ) - (15 * 60 * 1000);
+  }
+
+  function sessionAnnexDownloadAvailable(session) {
+    const availableAt = sessionAnnexDownloadWallClockMs(session);
+    if (availableAt === null) return false;
+    return madridWallClockMs() >= availableAt;
+  }
+
+  function annexDownloadTimeLabel(session) {
+    const availableAt = sessionAnnexDownloadWallClockMs(session);
+    if (availableAt === null) return "—";
+
+    const date = new Date(availableAt);
+    return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+  }
+
   function participantTrackingRegistrationState(registration) {
     const states = {
       pending: {
@@ -2979,9 +3026,10 @@
   function documentSessionItem(group) {
     const document = latestDocumentForSession(group.session.id);
     const generation = latestGenerationForSession(group.session.id);
+    const started = sessionHasStarted(group.session);
     const finished = sessionHasFinished(group.session);
-    const attendanceClosed = group.pendingAttendance === 0;
-    const canCreate = finished && attendanceClosed && group.total > 0;
+    const downloadAvailable = sessionAnnexDownloadAvailable(group.session);
+    const canCreate = started && group.total > 0;
     const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
 
     const generationStatusClass = generation
@@ -3037,12 +3085,12 @@
         actionHtml = `<span class="creation-already-submitted">Anexo I ya remitido</span>`;
       } else {
         let availability = "";
-        if (!finished) {
-          availability = group.session.end_time
-            ? `Disponible después de las ${formatTime(group.session.end_time)} del ${formatDate(group.session.session_date)}.`
-            : "La sesión no tiene hora de finalización definida.";
-        } else if (!attendanceClosed) {
-          availability = `La Dirección Provincial tiene pendiente registrar asistencia o ausencia de ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"}.`;
+        if (!started) {
+          availability = group.session.start_time
+            ? `Disponible desde las ${formatTime(group.session.start_time)} del ${formatDate(group.session.session_date)}.`
+            : "La sesión no tiene hora de inicio definida.";
+        } else if (group.pendingAttendance > 0) {
+          availability = `${group.total} persona${group.total === 1 ? "" : "s"} inscrita${group.total === 1 ? "" : "s"}. La asistencia de ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"} todavía está pendiente de comprobación por la Dirección Provincial.`;
         } else {
           availability = `${group.total} persona${group.total === 1 ? "" : "s"} inscrita${group.total === 1 ? "" : "s"}: ${group.attended} asistieron y ${group.absent} no asistieron.${group.absent ? ` El Ayuntamiento indicará ${group.absent === 1 ? "el motivo de la ausencia" : "los motivos de las ausencias"} al generar el Anexo I.` : ""}`;
         }
@@ -3051,8 +3099,10 @@
 
         if (generation?.status === "pending" || generation?.status === "processing") {
           actionHtml = `<button class="button secondary small" type="button" disabled>Generando…</button>`;
-        } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
+        } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path && downloadAvailable) {
           actionHtml = `<button class="button small download-signatures-button js-download-generated" type="button" data-request-id="${generation.id}">Descargar para firmas</button>`;
+        } else if (generation?.status === "ready" && localGenerationKey && generation.storage_path) {
+          actionHtml = `<button class="button secondary small" type="button" disabled>Descargar desde las ${escapeHtml(annexDownloadTimeLabel(group.session))}</button>`;
         } else if (canCreate) {
           const generateLabel = generation?.status === "downloaded"
             ? "Volver a generar Anexo I"
@@ -3079,7 +3129,6 @@
       const canUpload = isCorrection
         || (
           finished
-          && attendanceClosed
           && group.total > 0
           && downloadedForSignatures
           && !document
@@ -3177,7 +3226,7 @@
     const allGroups = documentGroups();
     const today = localToday();
     const groups = documentViewMode === "create"
-      ? allGroups.filter((group) => String(group.session.session_date || "") <= today)
+      ? allGroups.filter((group) => sessionHasStarted(group.session))
       : allGroups.filter((group) => sessionHasFinished(group.session));
     const phase = elements.documentPhaseFilter?.value || "all";
     const date = elements.documentDateFilter?.value || "";
@@ -3242,15 +3291,14 @@
         continue;
       }
 
+      const started = sessionHasStarted(group.session);
       const finished = sessionHasFinished(group.session);
-      const attendanceClosed = group.pendingAttendance === 0;
+      const downloadAvailable =
+        sessionAnnexDownloadAvailable(group.session);
+      const generation =
+        latestGenerationForSession(group.session.id);
 
-      const canPrepare =
-        finished
-        && attendanceClosed
-        && group.total > 0;
-
-      if (!canPrepare || document) continue;
+      if (!started || group.total < 1 || document) continue;
 
       /*
        * Si esta sesión tiene una incidencia de Anexo I,
@@ -3260,10 +3308,32 @@
       if (annexIncidentSessionIds.has(sessionId)) continue;
 
       if (hasDownloadedGeneration(group.session.id)) {
-        annexUpload += 1;
-      } else {
-        annexCreate += 1;
+        if (finished) {
+          annexUpload += 1;
+        }
+        continue;
       }
+
+      if (
+        generation?.status === "pending"
+        || generation?.status === "processing"
+      ) {
+        continue;
+      }
+
+      if (
+        generation?.status === "ready"
+        && !downloadAvailable
+      ) {
+        continue;
+      }
+
+      /*
+       * Tanto una sesión aún sin generar como una generación
+       * ya preparada y descargable se gestionan desde la sección
+       * "Generar Anexos I".
+       */
+      annexCreate += 1;
     }
 
     return {
@@ -3680,7 +3750,7 @@
   function registrationsForAnnex(sessionId) {
     return registrations.filter((registration) =>
       registration.session?.id === sessionId
-      && ["attended", "absent"].includes(registration.status)
+      && registration.status !== "cancelled"
       && registration.program_id
       && registration.program_name_snapshot
     );
@@ -3698,17 +3768,14 @@
       return;
     }
     const group = documentGroups().find((item) => item.session.id === sessionId);
-    if (!group || !sessionHasFinished(session)) {
-      showNotice("warning", `El Anexo I estará disponible después de la hora de finalización de la sesión (${formatTime(session.end_time)}).`);
+    if (!group || !sessionHasStarted(session)) {
+      showNotice("warning", `El Anexo I estará disponible a partir de la hora de inicio de la sesión (${formatTime(session.start_time)}).`);
       return;
     }
-    if (group.pendingAttendance > 0) {
-      showNotice("warning", "La Dirección Provincial debe completar la asistencia de todas las personas inscritas antes de generar el Anexo I.");
-      return;
-    }
+
     const included = registrationsForAnnex(sessionId);
     if (included.length === 0) {
-      showNotice("warning", "No hay personas inscritas con asistencia cerrada para generar el Anexo I.");
+      showNotice("warning", "No hay personas inscritas disponibles para generar el Anexo I.");
       return;
     }
 
@@ -3719,9 +3786,12 @@
     elements.annexModality.value = "online";
     elements.annexRepresentativeName.value = "";
     elements.annexRepresentativePosition.value = "";
-    elements.annexParticipantCount.textContent = `${included.length} persona${included.length === 1 ? "" : "s"} inscrita${included.length === 1 ? "" : "s"}: ${group.attended} asistieron y ${group.absent} no asistieron`;
+    elements.annexParticipantCount.textContent = `${included.length} persona${included.length === 1 ? "" : "s"} inscrita${included.length === 1 ? "" : "s"}: ${group.attended} asistieron, ${group.absent} no asistieron${group.pendingAttendance ? ` y ${group.pendingAttendance} tienen la asistencia pendiente` : ""}`;
     elements.annexParticipantsList.innerHTML = included.map((registration) => {
       const absent = registration.status === "absent";
+      const attended = registration.status === "attended";
+      const statusLabel = absent ? "No asistió" : attended ? "Asistió" : "Asistencia pendiente";
+      const statusClass = absent ? "closed" : attended ? "synced" : "validation-pending";
       const reason = String(registration.absence_reason || "").trim();
       return `
         <div class="annex-participant-row annex-participant-readonly ${absent ? "annex-participant-absent annex-participant-absence-editor" : ""}">
@@ -3729,7 +3799,7 @@
             <strong>${escapeHtml(registration.participant?.display_name || "Persona")}</strong>
             <small>${escapeHtml(registration.participant?.masked_document || "Documento protegido")} · ${escapeHtml(registration.program_name_snapshot)}</small>
           </div>
-          <span class="badge ${absent ? "closed" : "synced"}">${absent ? "No asistió" : "Asistió"}</span>
+          <span class="badge ${statusClass}">${statusLabel}</span>
           ${absent ? `
             <label class="annex-absence-reason-field">
               <span>Motivo de no asistencia <strong aria-hidden="true">*</strong></span>
@@ -3790,7 +3860,7 @@
     }
 
     if (registrationIds.length < 1) {
-      showNotice("warning", "No hay personas inscritas con la asistencia cerrada para incluir.", elements.annexGenerationNotice);
+      showNotice("warning", "No hay personas inscritas disponibles para incluir en el Anexo I.", elements.annexGenerationNotice);
       return;
     }
     if (!representativeName || !representativePosition) {
@@ -3856,14 +3926,17 @@
       if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
       closeAnnexGenerationDialog();
       await loadDocuments();
-      showNotice("success", "El SAE está generando el Anexo I. Esta pantalla se actualiza automáticamente cada 60 segundos y mostrará la descarga en cuanto esté disponible.");
+      showNotice(
+        "success",
+        `El SAE está generando el Anexo I con las personas actualmente inscritas. El PDF quedará guardado y podrás descargar esta misma copia desde las ${annexDownloadTimeLabel(cutoffSession)}.`
+      );
     } catch (error) {
       if (elements.annexGenerationInfoDialog.open) elements.annexGenerationInfoDialog.close();
       showNotice("error", error.message || "No se pudo solicitar el Anexo I.", elements.annexGenerationNotice);
     } finally {
       pendingAnnexGeneration = null;
       elements.confirmAnnexGenerationInfo.disabled = false;
-      elements.confirmAnnexGenerationInfo.textContent = "Entendido, generar PDF";
+      elements.confirmAnnexGenerationInfo.textContent = "Generar Anexo I";
       elements.submitAnnexGeneration.disabled = false;
       elements.submitAnnexGeneration.textContent = "Generar PDF para firmas";
     }
@@ -3872,6 +3945,17 @@
   async function downloadGeneratedAnnex(requestId) {
     const request = annexGenerationRequests.find((item) => item.id === requestId);
     if (!request || request.status !== "ready" || !request.storage_path) return;
+
+    const session = findRegistrationSession(request.session_id);
+
+    if (!session || !sessionAnnexDownloadAvailable(session)) {
+      showNotice(
+        "warning",
+        `El Anexo I podrá descargarse desde 15 minutos antes de finalizar la sesión${session?.end_time ? `, a partir de las ${annexDownloadTimeLabel(session)}` : ""}.`
+      );
+      return;
+    }
+
     const rawKeyBase64 = localStorage.getItem(annexKeyStorageName(request.id));
     if (!rawKeyBase64) {
       showNotice("warning", "Este PDF se solicitó desde otro navegador o se eliminó su clave local. Genera una nueva copia en este dispositivo.");
@@ -4044,6 +4128,15 @@
     }
     const session = findRegistrationSession(sessionId);
     if (!session) return;
+
+    if (!sessionHasFinished(session)) {
+      showNotice(
+        "warning",
+        `La subida del Anexo I estará disponible cuando haya finalizado la sesión (${formatTime(session.end_time)}).`
+      );
+      return;
+    }
+
     clearNotice(elements.documentUploadNotice);
     elements.documentUploadForm.reset();
     elements.documentSessionId.value = session.id;
@@ -4069,6 +4162,17 @@
         "warning",
         "El Anexo I de las sesiones anteriores al 01/10/2026 se gestionó fuera de esta aplicación.",
         elements.documentUploadNotice,
+      );
+      return;
+    }
+
+    const uploadSession = findRegistrationSession(sessionId);
+
+    if (!uploadSession || !sessionHasFinished(uploadSession)) {
+      showNotice(
+        "warning",
+        `La subida del Anexo I estará disponible cuando haya finalizado la sesión${uploadSession?.end_time ? ` (${formatTime(uploadSession.end_time)})` : ""}.`,
+        elements.documentUploadNotice
       );
       return;
     }
