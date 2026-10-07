@@ -4885,7 +4885,6 @@
     const previewName =
       firstName
       && firstSurname
-      && secondSurname
         ? displayName(
             firstName,
             firstSurname,
@@ -4934,7 +4933,9 @@
       if (!field) continue;
 
       field.disabled = !historical;
-      field.required = historical;
+      field.required =
+        historical
+        && field !== elements.finalHistoricalSecondSurname;
     }
 
     if (historical) {
@@ -5720,8 +5721,8 @@
       return;
     }
 
-    if (!firstName || !firstSurname || !secondSurname) {
-      showNotice("warning", "Completa el nombre y los dos apellidos.", elements.registrationNotice);
+    if (!firstName || !firstSurname) {
+      showNotice("warning", "Completa el nombre y el primer apellido.", elements.registrationNotice);
       return;
     }
     if (!validateDocument(documentType, documentNumber)) {
@@ -6138,11 +6139,10 @@
     if (
       !firstName
       || !firstSurname
-      || !secondSurname
     ) {
       showNotice(
         "warning",
-        "Completa el nombre y los dos apellidos.",
+        "Completa el nombre y el primer apellido.",
         elements.finalRegistrationNotice
       );
 
