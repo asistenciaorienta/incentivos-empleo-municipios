@@ -1040,7 +1040,10 @@
     const name = normalizePersonText(firstName);
     const firstInitial = initialOf(firstSurname);
     const secondInitial = initialOf(secondSurname);
-    return `${name} ${firstInitial || "_"}. ${secondInitial || "_"}.`;
+
+    return secondInitial
+      ? `${name} ${firstInitial}. ${secondInitial}.`
+      : `${name} ${firstInitial}.`;
   }
 
   function normalizeDocument(value) {
