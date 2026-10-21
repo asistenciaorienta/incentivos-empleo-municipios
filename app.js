@@ -3795,26 +3795,20 @@
       const attended = registration.status === "attended";
       const statusLabel = absent ? "No asistió" : attended ? "Asistió" : "Asistencia pendiente";
       const statusClass = absent ? "closed" : attended ? "synced" : "validation-pending";
-      const reason = String(registration.absence_reason || "").trim();
       return `
-        <div class="annex-participant-row annex-participant-readonly ${absent ? "annex-participant-absent annex-participant-absence-editor" : ""}">
+        <div class="annex-participant-row annex-participant-readonly ${absent ? "annex-participant-absent" : ""}">
           <div class="annex-participant-identity">
             <strong>${escapeHtml(registration.participant?.display_name || "Persona")}</strong>
             <small>${escapeHtml(registration.participant?.masked_document || "Documento protegido")} · ${escapeHtml(registration.program_name_snapshot)}</small>
           </div>
           <span class="badge ${statusClass}">${statusLabel}</span>
-          ${absent ? `
-            <label class="annex-absence-reason-field">
-              <span>Motivo de no asistencia <strong aria-hidden="true">*</strong></span>
-              <textarea data-annex-absence-reason-id="${registration.id}" rows="2" maxlength="120" required placeholder="Indica el motivo de no asistencia…">${escapeHtml(reason)}</textarea>
-              <small>Obligatorio · entre 3 y 120 caracteres. Se mostrará en el lugar de la firma.</small>
-            </label>` : ""}
+
         </div>`;
     }).join("");
     elements.annexGenerationDialog.showModal();
   }
 
-  function closeAnnexGenerationDialog() {
+function closeAnnexGenerationDialog() {
     pendingAnnexGeneration = null;
     if (elements.annexGenerationInfoDialog?.open) elements.annexGenerationInfoDialog.close();
     elements.annexGenerationForm.reset();
@@ -3852,14 +3846,11 @@
     const absentRegistrations = registrationsForAnnex(sessionId).filter((item) => item.status === "absent");
 
     for (const registration of absentRegistrations) {
-      const field = elements.annexParticipantsList.querySelector(`[data-annex-absence-reason-id="${registration.id}"]`);
-      const reason = normalizePersonText(field?.value || "");
-      if (reason.length < 3 || reason.length > 120) {
-        showNotice("warning", `Indica un motivo de no asistencia de entre 3 y 120 caracteres para ${registration.participant?.display_name || "la persona ausente"}.`, elements.annexGenerationNotice);
-        field?.focus();
-        return;
-      }
-      absenceReasons[registration.id] = reason;
+      // El Anexo I solo mostrará "No Asiste". Conservamos un motivo anterior,
+      // si existe, porque el contrato actual de la RPC exige este campo.
+      const previous = String(registration.absence_reason || "").trim();
+      absenceReasons[registration.id] =
+        previous.length >= 3 && previous.length <= 120 ? previous : "No Asiste";
     }
 
     if (registrationIds.length < 1) {
