@@ -839,13 +839,24 @@
     ).join("");
   }
 
+  // SAE-GRANADA-ANEXO-SIN-ASISTENTES-V2
+  function annexWithoutAttendees(group) {
+    return Boolean(
+      group && sessionHasFinished(group.session)
+      && group.total > 0
+      && group.attended === 0
+      && group.absent === group.total
+      && group.pendingAttendance === 0
+    );
+  }
+
   function documentMatchesQuickFilter(group, filter) {
     if (filter === "all") return true;
     const document = latestDocumentForSession(group.session.id);
     const generation = latestGenerationForSession(group.session.id);
     const started = sessionHasStarted(group.session);
     const finished = sessionHasFinished(group.session);
-    const canCreate = started && group.total > 0;
+    const canCreate = started && group.total > 0 && !annexWithoutAttendees(group);
     const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
     const correction = document?.validation_status === "incident" || document?.sync_status === "error";
     const canUpload = correction || (finished && group.total > 0 && downloadedForSignatures && !document);
@@ -861,7 +872,7 @@
     } else {
       if (filter === "available") return document?.validation_status === "validated";
       if (filter === "pending") return Boolean(document) && document.validation_status !== "validated";
-      if (filter === "missing") return !document;
+      if (filter === "missing") return !document && !annexWithoutAttendees(group);
     }
     return true;
   }
@@ -2747,6 +2758,16 @@
       };
     }
 
+    if (annexWithoutAttendees(group) && !generation) {
+      return {
+        label: "Anexo I no necesario",
+        detail: "Todas las personas del ayuntamiento faltaron a la sesión. No es necesario generar ni presentar el Anexo I.",
+        className: "synced",
+        actionMode: "",
+        actionLabel: "",
+      };
+    }
+
     return {
       label: "Pendiente de generar",
       detail: "La asistencia está cerrada y todavía no se ha generado el Anexo I de esta sesión.",
@@ -3032,7 +3053,7 @@
     const started = sessionHasStarted(group.session);
     const finished = sessionHasFinished(group.session);
     const downloadAvailable = sessionAnnexDownloadAvailable(group.session);
-    const canCreate = started && group.total > 0;
+    const canCreate = started && group.total > 0 && !annexWithoutAttendees(group);
     const downloadedForSignatures = hasDownloadedGeneration(group.session.id);
 
     const generationStatusClass = generation
@@ -3095,7 +3116,7 @@
         } else if (group.pendingAttendance > 0) {
           availability = `${group.total} persona${group.total === 1 ? "" : "s"} inscrita${group.total === 1 ? "" : "s"}. La asistencia de ${group.pendingAttendance} persona${group.pendingAttendance === 1 ? "" : "s"} todavía está pendiente de comprobación por la Dirección Provincial.`;
         } else {
-          availability = `${group.total} persona${group.total === 1 ? "" : "s"} inscrita${group.total === 1 ? "" : "s"}: ${group.attended} asistieron y ${group.absent} no asistieron.${group.absent ? ` El Ayuntamiento indicará ${group.absent === 1 ? "el motivo de la ausencia" : "los motivos de las ausencias"} al generar el Anexo I.` : ""}`;
+          availability = `${group.total} persona${group.total === 1 ? "" : "s"} inscrita${group.total === 1 ? "" : "s"}: ${group.attended} asistieron y ${group.absent} no asistieron.`;
         }
 
         contentHtml = `<div class="document-status-column"><strong>Asistencia</strong><span>${escapeHtml(availability)}</span></div><div class="document-status-column"><strong>Listado para firmas</strong>${generationStatusHtml}</div>`;
@@ -3192,6 +3213,17 @@
       actionHtml = validated
         ? `<div class="download-actions">${annexDocumentDownloadAction(document, "provincial_validated")}${annexDocumentDownloadAction(document, "municipal_signed")}</div>`
         : `<button class="button secondary small" type="button" disabled>No disponible para descarga</button>`;
+    }
+
+    // Tras el cierre de asistencia, cero asistentes: trámite no necesario.
+    // Los documentos y solicitudes previos conservan sus circuitos originales.
+    if ((documentViewMode === "create" || documentViewMode === "upload")
+        && annexWithoutAttendees(group) && !document && !generation) {
+      contentHtml = `<div class="document-status-column"><strong>Estado del Anexo I</strong>
+        <div class="status-row"><span class="badge synced">Anexo I no necesario</span></div></div>
+        <div class="document-status-column"><strong>Motivo</strong>
+        <span>Ninguna de las personas inscritas por este ayuntamiento asistió a la sesión. No es necesario generar ni presentar el Anexo I.</span></div>`;
+      actionHtml = "";
     }
 
     const visualStateClass = documentViewMode === "create"
@@ -3302,6 +3334,8 @@
         latestGenerationForSession(group.session.id);
 
       if (!started || group.total < 1 || document) continue;
+      // Sin asistentes y sin solicitud previa, no se contabiliza tarea pendiente.
+      if (annexWithoutAttendees(group) && !generation) continue;
 
       /*
        * Si esta sesión tiene una incidencia de Anexo I,
@@ -3776,6 +3810,10 @@
       return;
     }
 
+    if (annexWithoutAttendees(group)) {
+      showNotice("warning", "Ninguna persona de este ayuntamiento asistió a la sesión. No es necesario generar ni presentar el Anexo I.");
+      return;
+    }
     const included = registrationsForAnnex(sessionId);
     if (included.length === 0) {
       showNotice("warning", "No hay personas inscritas disponibles para generar el Anexo I.");
@@ -3839,6 +3877,11 @@ function closeAnnexGenerationDialog() {
       return;
     }
 
+    const group = documentGroups().find((item) => item.session.id === sessionId);
+    if (annexWithoutAttendees(group)) {
+      showNotice("warning", "No es necesario generar el Anexo I: todas las personas de este ayuntamiento faltaron a la sesión.", elements.annexGenerationNotice);
+      return;
+    }
     const registrationIds = registrationsForAnnex(sessionId).map((item) => item.id);
     const representativeName = normalizePersonText(elements.annexRepresentativeName.value);
     const representativePosition = normalizePersonText(elements.annexRepresentativePosition.value);
@@ -3895,6 +3938,12 @@ function closeAnnexGenerationDialog() {
       return;
     }
 
+    const group = documentGroups().find((item) => item.session.id === payload.sessionId);
+    if (annexWithoutAttendees(group)) {
+      closeAnnexGenerationInfoDialog();
+      showNotice("warning", "No es necesario generar ni presentar el Anexo I: todas las personas del ayuntamiento faltaron a la sesión.");
+      return;
+    }
     elements.confirmAnnexGenerationInfo.disabled = true;
     elements.confirmAnnexGenerationInfo.textContent = "Preparando PDF…";
     elements.submitAnnexGeneration.disabled = true;
