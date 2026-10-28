@@ -5935,6 +5935,80 @@ function closeAnnexGenerationDialog() {
     }
   }
 
+  /*
+   * FINAL HISTÓRICA · Recuperación de una misma solicitud.
+   * La huella del formulario se calcula mediante HMAC con una clave aleatoria
+   * que solo vive en sessionStorage. No guardamos nombres ni DNI en claro.
+   * Esta protección identifica REINTENTOS del mismo formulario en esta pestaña;
+   * la validación real de identidad/ciclos sigue perteneciendo al servidor SAE.
+   */
+  const HISTORICAL_FINAL_REQUEST_PREFIX =
+    "incentivos:historical-final-request:v1";
+
+  async function historicalFinalOperation(identity, sessionId, programId) {
+    if (!currentUser?.id || !currentProfile?.municipality?.id) {
+      throw new Error("Debes identificarte y seleccionar un ayuntamiento.");
+    }
+
+    const scope = [
+      HISTORICAL_FINAL_REQUEST_PREFIX,
+      currentUser.id,
+      currentProfile.municipality.id,
+    ].join(":");
+
+    // sessionStorage evita conservar datos identificativos entre sesiones del navegador.
+    let rawKey = sessionStorage.getItem(`${scope}:hmac-key`);
+    if (!rawKey) {
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      rawKey = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      sessionStorage.setItem(`${scope}:hmac-key`, rawKey);
+    }
+
+    const secret = new Uint8Array(
+      rawKey.match(/.{2}/g).map((pair) => parseInt(pair, 16))
+    );
+    const key = await crypto.subtle.importKey(
+      "raw", secret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const input = JSON.stringify({
+      sessionId: String(sessionId),
+      programId: String(programId),
+      firstName: identity.first_name,
+      firstSurname: identity.first_surname,
+      secondSurname: identity.second_surname,
+      documentType: identity.document_type,
+      documentNumber: identity.document_number,
+    });
+    const digest = await crypto.subtle.sign(
+      "HMAC", key, new TextEncoder().encode(input)
+    );
+    const fingerprint = Array.from(
+      new Uint8Array(digest),
+      (b) => b.toString(16).padStart(2, "0")
+    ).join("");
+    const storageKey = `${scope}:${fingerprint}`;
+    const existing = sessionStorage.getItem(storageKey);
+    let record = existing ? JSON.parse(existing) : null;
+
+    if (!record) {
+      record = {
+        requestId: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        registrationId: null,
+        participantId: null,
+      };
+      sessionStorage.setItem(storageKey, JSON.stringify(record));
+    }
+
+    return {
+      record,
+      save(updates) {
+        Object.assign(record, updates);
+        sessionStorage.setItem(storageKey, JSON.stringify(record));
+      },
+    };
+  }
+
   async function handleFinalRegistration(event) {
     event.preventDefault();
 
@@ -6273,87 +6347,63 @@ function closeAnnexGenerationDialog() {
           currentUser.id,
       };
 
-      const encrypted =
-        await encryptIdentity(
-          identity,
-          context,
-          activeEncryptionKey.public_key_pem
-        );
-
-      elements.submitFinalRegistration.textContent =
-        "Registrando…";
-
-      const {
-        data,
-        error,
-      } = await municipalRpc(
-        "register_historical_final_with_identity",
-        {
-          p_session_id:
-            sessionId,
-
-          p_program_id:
-            programId,
-
-          p_display_name:
-            displayName(
-              firstName,
-              firstSurname,
-              secondSurname
-            ),
-
-          p_masked_document:
-            maskedDocument(
-              documentNumber
-            ),
-
-          p_key_id:
-            activeEncryptionKey.id,
-
-          p_encrypted_key:
-            encrypted.encryptedKey,
-
-          p_iv:
-            encrypted.iv,
-
-          p_ciphertext:
-            encrypted.ciphertext,
-
-          p_contract_start_date:
-            null,
-
-          p_contract_end_date:
-            null,
-
-          p_payload_version:
-            1,
-        }
+      // La clave se reserva ANTES de llamar a Supabase. Si la conexión se
+      // interrumpe tras el COMMIT, reintentar reutiliza el mismo request_id.
+      const operation = await historicalFinalOperation(
+        identity, sessionId, programId
       );
 
-      if (error) {
-        throw new Error(
-          error.message
+      let newParticipantId = operation.record.participantId;
+      let registrationId = operation.record.registrationId;
+
+      if (!newParticipantId || !registrationId) {
+        const encrypted =
+          await encryptIdentity(
+            identity,
+            context,
+            activeEncryptionKey.public_key_pem
+          );
+
+        elements.submitFinalRegistration.textContent =
+          "Registrando…";
+
+        const { data, error } = await municipalRpc(
+          "register_historical_final_idempotent",
+          {
+            p_request_id: operation.record.requestId,
+            p_session_id: sessionId,
+            p_program_id: programId,
+            p_display_name: displayName(
+              firstName, firstSurname, secondSurname
+            ),
+            p_masked_document: maskedDocument(documentNumber),
+            p_key_id: activeEncryptionKey.id,
+            p_encrypted_key: encrypted.encryptedKey,
+            p_iv: encrypted.iv,
+            p_ciphertext: encrypted.ciphertext,
+            p_contract_start_date: null,
+            p_contract_end_date: null,
+            p_payload_version: 1,
+          }
         );
-      }
 
-      const rpcResult =
-        Array.isArray(data)
-          ? data[0]
-          : data;
+        if (error) {
+          throw new Error(error.message);
+        }
 
-      const newParticipantId =
-        rpcResult?.participant_id;
-
-      const registrationId =
-        rpcResult?.registration_id;
-
-      if (
-        !newParticipantId
-        || !registrationId
-      ) {
-        throw new Error(
-          "No se han recibido los identificadores necesarios para validar la inscripción."
-        );
+        const result = Array.isArray(data) ? data[0] : data;
+        newParticipantId = result?.participant_id;
+        registrationId = result?.registration_id;
+        if (!newParticipantId || !registrationId) {
+          // Conservamos request_id: el servidor puede haber confirmado la solicitud.
+          throw new Error(
+            "No se recibieron los identificadores. Reintenta consultar la misma solicitud; no se creará otra."
+          );
+        }
+        operation.save({ participantId: newParticipantId, registrationId });
+      } else {
+        elements.submitFinalRegistration.textContent =
+          "Consultando solicitud anterior…";
       }
 
       closeFinalDialog();
@@ -6460,7 +6510,7 @@ function closeAnnexGenerationDialog() {
       ) {
         showRegistrationValidationResult(
           "La inscripción requiere revisión",
-          validation.message,
+          `${validation.message} No repitas el alta: consulta esta solicitud o contacta con el SAE.`,
         );
       } else {
         showRegistrationValidationResult(
