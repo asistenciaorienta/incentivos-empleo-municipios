@@ -171,6 +171,9 @@
     finalSessionSummary: document.querySelector("#finalSessionSummary"),
     eligibleParticipant: document.querySelector("#eligibleParticipant"),
     finalHistoricalContractNotice: document.querySelector("#finalHistoricalContractNotice"),
+    finalReverseOrderNotice: document.querySelector("#finalReverseOrderNotice"),
+    finalReverseOrderDates: document.querySelector("#finalReverseOrderDates"),
+    finalReverseOrderConfirmed: document.querySelector("#finalReverseOrderConfirmed"),
     finalHistoricalIdentityMode: document.querySelector("#finalHistoricalIdentityMode"),
     finalHistoricalIdentityFields: document.querySelector("#finalHistoricalIdentityFields"),
     finalHistoricalFirstName: document.querySelector("#finalHistoricalFirstName"),
@@ -1336,11 +1339,52 @@
     return sessionDate >= start && sessionDate <= end;
   }
 
+  const ACTIVA_T_JOVEN_PROGRAM_ID =
+    "b6b50a81-df54-4400-b693-8267af0c8f19";
+
+  function reverseInitialForFinal(participant, session, programId = "") {
+    if (!participant || !session || session.session_type !== "final") return null;
+    const date = String(session.session_date || "");
+    return (participant.pending_initials || []).find((initial) =>
+      initial.sync_status === "synced"
+      && initial.program_id === ACTIVA_T_JOVEN_PROGRAM_ID
+      && (!programId || initial.program_id === String(programId))
+      && String(initial.session_date || "") > date
+      && participantFitsSessionContract(participant, {session_date: initial.session_date})
+    ) || null;
+  }
+
   function eligibleParticipantsForSession(session) {
-    return eligibleParticipants.filter(
-      (participant) =>
-        participantFitsSessionContract(participant, session)
+    return eligibleParticipants.filter((participant) =>
+      participantFitsSessionContract(participant, session)
+      && (
+        participant.normal_final_eligible
+        || Boolean(reverseInitialForFinal(participant, session))
+      )
     );
+  }
+
+  let lastReverseOrderContext = "";
+  function updateFinalReverseOrderNotice() {
+    if (!elements.finalReverseOrderNotice) return;
+    const session = findSession(elements.finalSessionId.value);
+    const participant = eligibleParticipantsForSession(session).find(
+      (item) => String(item.id) === String(elements.eligibleParticipant.value)
+    );
+    const reverse = !elements.finalHistoricalIdentityMode.checked
+      ? reverseInitialForFinal(participant, session, elements.finalProgram.value)
+      : null;
+    const context = reverse
+      ? `${participant.id}|${session.id}|${elements.finalProgram.value}`
+      : "";
+    if (context !== lastReverseOrderContext) {
+      elements.finalReverseOrderConfirmed.checked = false;
+    }
+    lastReverseOrderContext = context;
+    elements.finalReverseOrderNotice.hidden = !reverse;
+    elements.finalReverseOrderDates.textContent = reverse
+      ? `Final: ${formatDate(session.session_date)}. Inicial pendiente: ${formatDate(reverse.session_date)}.`
+      : "";
   }
 
   function updateFinalContractNotice(selectedParticipant = null) {
@@ -4608,6 +4652,26 @@ function closeAnnexGenerationDialog() {
           ])
       );
 
+      // Inicial futura ya incorporada al SAE: mismo programa, misma persona.
+      // No basta con progress_status: verificamos la inscripción concreta.
+      const pendingInitialByParticipant = new Map();
+      for (const item of registrations) {
+        if (item.phase !== "initial"
+            || item.status !== "confirmed"
+            || item.sync_status !== "synced"
+            || item.participant?.sync_status !== "synced"
+            || !item.participant?.id
+            || item.program_id !== ACTIVA_T_JOVEN_PROGRAM_ID
+            || !item.session?.session_date) continue;
+        const items = pendingInitialByParticipant.get(item.participant.id) || [];
+        items.push({
+          program_id: item.program_id,
+          session_date: item.session.session_date,
+          sync_status: item.sync_status
+        });
+        pendingInitialByParticipant.set(item.participant.id, items);
+      }
+
       eligibleParticipants = (Array.isArray(municipalityParticipants)
         ? municipalityParticipants
         : []
@@ -4626,11 +4690,18 @@ function closeAnnexGenerationDialog() {
           return (
             hasAttendedInitial
             || historicalWithoutMechanizedInitial
+            || pendingInitialByParticipant.has(participant.id)
           );
         })
         .map((participant) => ({
           ...participant,
-          ...(attendedInitialByParticipant.get(participant.id) || {})
+          normal_final_eligible: attendedInitialByParticipant.has(participant.id)
+            || participant.progress_status === "new",
+          pending_initials: pendingInitialByParticipant.get(participant.id) || [],
+          ...(attendedInitialByParticipant.get(participant.id) || {}),
+          previous_program_id: attendedInitialByParticipant.get(participant.id)?.previous_program_id
+            || pendingInitialByParticipant.get(participant.id)?.[0]?.program_id
+            || ""
         }))
         .sort((a, b) =>
           String(a.display_name || "")
@@ -4991,6 +5062,7 @@ function closeAnnexGenerationDialog() {
       }
 
       updateFinalHistoricalSafePreview();
+      updateFinalReverseOrderNotice();
 
       window.setTimeout(
         () => elements.finalHistoricalFirstName?.focus(),
@@ -5021,6 +5093,7 @@ function closeAnnexGenerationDialog() {
     }
 
     updateFinalContractNotice(participant);
+    updateFinalReverseOrderNotice();
   }
 
 
@@ -5116,6 +5189,7 @@ function closeAnnexGenerationDialog() {
         selectedParticipant
       );
     }
+    updateFinalReverseOrderNotice();
   }
 
   function closeFinalDialog() {
@@ -6109,6 +6183,22 @@ function closeAnnexGenerationDialog() {
 
         renderSessions();
 
+        return;
+      }
+
+      const reverseInitial = reverseInitialForFinal(
+        selectedParticipant, selectedSession, programId
+      );
+      if (!selectedParticipant.normal_final_eligible && !reverseInitial) {
+        showNotice("warning",
+          "Solo se admite la Final anticipada si consta una Inicial futura, confirmada y sincronizada en Activa-T Joven, del mismo programa.",
+          elements.finalRegistrationNotice);
+        return;
+      }
+      if (reverseInitial && !elements.finalReverseOrderConfirmed.checked) {
+        showNotice("warning",
+          "Debes confirmar expresamente que la sesión final se celebrará antes de la inicial.",
+          elements.finalRegistrationNotice);
         return;
       }
 
@@ -8111,7 +8201,10 @@ function closeAnnexGenerationDialog() {
       updateFinalContractNotice(
         participant
       );
+      updateFinalReverseOrderNotice();
     });
+
+    elements.finalProgram.addEventListener("change", updateFinalReverseOrderNotice);
 
     elements.finalHistoricalIdentityMode.addEventListener(
       "change",
