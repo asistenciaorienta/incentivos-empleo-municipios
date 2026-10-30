@@ -4636,6 +4636,22 @@ function closeAnnexGenerationDialog() {
         );
       }
 
+      // Seguridad en la via ordinaria: no ofrecer fichas sin ID local del SAE.
+      // El alta historica sigue su formulario con identidad cifrada separado.
+      const { data: linkedParticipants, error: linkedError } =
+        await municipalRpc("list_final_incorporated");
+      if (linkedError) {
+        throw new Error(
+          `No se pudo verificar la incorporacion de las personas al SAE: ${linkedError.message}`
+        );
+      }
+      if (!Array.isArray(linkedParticipants)) {
+        throw new Error("No se pudo verificar la incorporacion de las personas al SAE.");
+      }
+      const incorporatedIds = new Set(
+        linkedParticipants.map((item) => String(item.participant_id))
+      );
+
       const attendedInitialByParticipant = new Map(
         registrations
           .filter((item) =>
@@ -4678,6 +4694,7 @@ function closeAnnexGenerationDialog() {
       )
         .filter((participant) => {
           if (!participant?.id) return false;
+          if (!incorporatedIds.has(String(participant.id))) return false;
           if (participant.contract_termination_date) return false;
           if (activeFinalParticipantIds.has(participant.id)) return false;
 
