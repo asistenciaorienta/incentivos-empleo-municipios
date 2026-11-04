@@ -3075,10 +3075,13 @@
       ? localStorage.getItem(annexDocumentDownloadKeyStorageName(request.id))
       : null;
 
+    const expiresAtMs = Date.parse(request?.expires_at ?? "");
+    const requestExpired = Boolean(request)
+      && (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now());
     let action = "";
-    if (request?.status === "pending" || request?.status === "processing") {
+    if (!requestExpired && (request?.status === "pending" || request?.status === "processing")) {
       action = `<button class="button ${isProvincialValidated ? "primary" : "secondary"} ${isProvincialValidated ? "important-download-button" : ""} small" type="button" disabled>Preparando…</button>`;
-    } else if (request?.status === "ready" && localKey && request.storage_path) {
+    } else if (!requestExpired && request?.status === "ready" && localKey && request.storage_path) {
       action = `<button class="button ${isProvincialValidated ? "primary important-download-button" : "secondary"} small js-download-annex-document" type="button" data-request-id="${request.id}">${isProvincialValidated ? "Descargar validado por DP" : "Descargar PDF municipal"}</button>`;
     } else {
       action = `<button class="button ${isProvincialValidated ? "primary important-download-button" : "secondary"} small js-prepare-annex-document-download" type="button" data-document-id="${document.id}" data-session-id="${document.session_id}" data-variant="${variant}">${isProvincialValidated ? "Preparar descarga del validado por DP" : "Preparar descarga"}</button>`;
