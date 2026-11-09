@@ -3551,6 +3551,19 @@
         && !document.incident_message
       ) continue;
 
+      // SAE-GRANADA-INCIDENCIAS-ANEXOS-VALIDADOS-V1
+      // Una version anterior con incidencia deja de estar
+      // pendiente cuando otra posterior ya esta validada.
+      // El historico de documentos no se modifica.
+      const hasLaterValidatedVersion = municipalDocuments.some(
+        (candidate) =>
+          candidate.session_id === document.session_id
+          && Number(candidate.version) > Number(document.version)
+          && candidate.validation_status === "validated"
+      );
+
+      if (hasLaterValidatedVersion) continue;
+
       const session = findRegistrationSession(document.session_id);
       items.push({
         group: "annex",
