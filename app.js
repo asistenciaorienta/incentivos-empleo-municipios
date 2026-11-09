@@ -4668,6 +4668,44 @@ function closeAnnexGenerationDialog() {
         linkedParticipants.map((item) => String(item.participant_id))
       );
 
+      const absentFinalParticipantIds = new Set(
+        registrations
+          .filter((item) =>
+            item.phase === "final"
+            && item.status === "absent"
+            && item.participant?.id
+          )
+          .map((item) => item.participant.id)
+      );
+
+      // Programa orientativo para repetir una Final ausente.
+      // Solo se utiliza si todas las Finales ausentes
+      // de esta ficha corresponden al mismo programa.
+      // El sincronizador valida el ciclo activo.
+      const absentFinalPrograms = new Map();
+      for (const item of registrations) {
+        if (
+          item.phase !== "final"
+          || item.status !== "absent"
+          || !item.participant?.id
+          || !item.program_id
+        ) continue;
+
+        const id = String(item.participant.id);
+        const programs = absentFinalPrograms.get(id) || new Set();
+        programs.add(String(item.program_id));
+        absentFinalPrograms.set(id, programs);
+      }
+
+      const absentFinalProgramByParticipant = new Map();
+      for (const [id, programIds] of absentFinalPrograms) {
+        if (programIds.size === 1) {
+          absentFinalProgramByParticipant.set(
+            id, [...programIds][0]
+          );
+        }
+      }
+
       const attendedInitialByParticipant = new Map(
         registrations
           .filter((item) =>
@@ -4724,16 +4762,19 @@ function closeAnnexGenerationDialog() {
             hasAttendedInitial
             || historicalWithoutMechanizedInitial
             || pendingInitialByParticipant.has(participant.id)
+            || absentFinalParticipantIds.has(participant.id)
           );
         })
         .map((participant) => ({
           ...participant,
           normal_final_eligible: attendedInitialByParticipant.has(participant.id)
-            || participant.progress_status === "new",
+            || participant.progress_status === "new"
+            || absentFinalParticipantIds.has(participant.id),
           pending_initials: pendingInitialByParticipant.get(participant.id) || [],
           ...(attendedInitialByParticipant.get(participant.id) || {}),
           previous_program_id: attendedInitialByParticipant.get(participant.id)?.previous_program_id
             || pendingInitialByParticipant.get(participant.id)?.[0]?.program_id
+            || absentFinalProgramByParticipant.get(String(participant.id))
             || ""
         }))
         .sort((a, b) =>
