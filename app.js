@@ -2271,6 +2271,20 @@
   }
 
 
+  // Mostrar el motivo solo en inscripciones no asistidas.
+  // El texto procede de Supabase y se escapa antes de insertarlo.
+  function registrationAbsenceReasonHtml(registration) {
+    if (registration?.status !== "absent") return "";
+
+    const reason = String(
+      registration.absence_reason ?? ""
+    ).trim();
+
+    if (!reason) return "";
+
+    return `<p class="registration-absence-reason"><strong>Motivo de no asistencia:</strong> ${escapeHtml(reason)}</p>`;
+  }
+
   function registrationItem(registration) {
     const participant = registration.participant ?? {};
     const session = registration.session ?? {};
@@ -2344,6 +2358,7 @@
             <span class="badge ${statusClass}">${escapeHtml(statusText)}</span>
             <span class="badge ${registration.sync_status}">${escapeHtml(syncLabel(registration.sync_status))}</span>
           </div>
+          ${registrationAbsenceReasonHtml(registration)}
         </div>
         <div class="registration-actions">
           <span class="disabled-action-help" ${changeHelp ? `title="${escapeHtml(changeHelp)}"` : ""}>
@@ -2920,6 +2935,7 @@
             <span>Programa</span>
             <strong>${escapeHtml(program)}</strong>
           </div>
+          ${registrationAbsenceReasonHtml(registration)}
         </div>
 
         <div class="participant-tracking-annex">
